@@ -29,6 +29,18 @@ void cprint(char string[255], int colorCode)
 {
     write(1, string, strlen(string));
 }
+void trim(char *str){
+    int i=0,j = 0;
+    while(str[i]!='\0'){
+        if (str[i]!=' '){
+            str[j]=str[i];
+            j++;
+
+        }
+        i++;
+    }
+    str[j]='\0';
+}
 // shell config.
 typedef struct shellConf
 {
@@ -140,6 +152,7 @@ void splitCommand(char *command, char **argv, int *argc)
     char *token = strtok(command, " ");
     while (token)
     {
+        trim(token);
         argv[*argc] = token;
         (*argc)++;
         token = strtok(NULL, " ");
@@ -334,7 +347,7 @@ void loop()
     if (rcfile == NULL)
     {
         rcfile = fopen(".ballrc", "w");
-        fprintf(rcfile, "The ball shell configuration file.\n  You should put a newline without any spaces after if you want to declare a keyword or a meaning or a startup commands(must be put last).\n  Keyword start with !, values start with @, startup commands start with $.\n  string modifiers for PISS: %%n - newline %%u - user %% h - hostname %%p - current path\n  Colors(start with %%) are just the capital first letter of color. For example: %%C - cyan \n!PISS\n@%%u@%%h  %%p %%n#   \n!ALIAS\n\n!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
+        fprintf(rcfile, "The ball shell configuration file.\n  You should put a newline without any spaces after if you want to declare a keyword or a meaning or a startup commands(must be put last).\n  Keyword start with !, values start with @, startup commands start with $.\n  string modifiers for PISS: %%n - newline %%u - user %% h - hostname %%p - current path\n  Colors(start with %%) are just the capital first letter of color. For example: %%C - cyan \n!PISS\n@%%R%%u%%G@%%h%%B  %%p%%C %%n#   %%D\n!ALIAS\n\n!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
         fclose(rcfile);
         rcfile = fopen(".ballrc", "r");
         conf = getConf(rcfile);
