@@ -25,7 +25,7 @@ void setColor(int color)
     write(1, buffer, len);
 }
 // write but colored
-void cprint(char string[255], int colorCode)
+void cprint(char string[255])
 {
     write(1, string, strlen(string));
 }
@@ -160,36 +160,13 @@ void splitCommand(char *command, char **argv, int *argc)
     argv[*argc] = NULL;
 }
 // Execute a single command, no forks and pipes etc
-void executeSingle(char command[255], shellConf config)
+void executeSingle(char **argv,int argc, shellConf config)
 {
     extern char **environ;
-    char *argv[255];
-    int argc = 0;
-    splitCommand(command, (char **)argv, &argc);
-    if (argc == 0)
-    {
-        return;
-    }
-    // Detect aliases
-    for (int i = 0; i < argc; i++)
-    {
-        int aliasid = findStrInArr(argv[i], config.aliases);
-        if (aliasid != -1)
-        {
-            printf("alias detected");
-            strcpy(argv[i], config.meanings[aliasid]);
-        }
-    }
-    // Add null to the end of the args
-    char *args[argc + 1];
-    for (int i = 0; i < argc; i++)
-    {
-        args[i] = argv[i];
-    }
-    args[argc] = NULL;
+    // Check if it is a actual path
     if (strchr(argv[0], '/'))
     {
-        execve(argv[0], args, environ);
+        execve(argv[0], argv, environ);
         perror("execve");
         exit(1);
     }
@@ -198,7 +175,7 @@ void executeSingle(char command[255], shellConf config)
     {
         char fullpath[512];
         snprintf(fullpath, sizeof(fullpath), "%s/%s", config.paths[i], argv[0]);
-        if (execve(fullpath, args, environ) != -1)
+        if (execve(fullpath, argv, environ) != -1)
             return;
     }
     fprintf(stderr, "Command not found: %s\n", argv[0]);
@@ -257,7 +234,22 @@ void executeCommand(char command[255], shellConf config)
         }
         return;
     }
-    // Normal command, piping(actually works, but not if space separated)
+    // Normal command, piping
+    pid_t pid = fork();
+    int status;
+    if(pid==0){
+        executeSingle(args,argc,config);
+        return;
+    }else if(pid==-1){
+        perror("FORK ERROR");
+        exit(EXIT_FAILURE);
+    }
+    else{
+        if (waitpid(pid,&status,0)==-1){
+            perror("WAITPID FAILURE");
+            exit(EXIT_FAILURE);
+        }
+    }
     
 }
 // Get the shell config
@@ -366,7 +358,7 @@ void loop()
     {
         strcpy(prompt, conf.PISS);
         formatEscape(prompt);
-        cprint(prompt, 0);
+        cprint(prompt);
         commandLength = read(0, command, 255);
         if (commandLength <= 0)
             continue;
@@ -377,7 +369,6 @@ void loop()
 // Start of the program
 int main()
 {
-
     loop();
     return 0;
 }
