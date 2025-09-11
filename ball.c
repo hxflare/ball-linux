@@ -111,6 +111,48 @@ void formatEscape(char *string)
                 src += 2;
                 break;
             }
+            /*
+                #define RED 31
+                #define WHITE 37
+                #define GREEN 32
+                #define YELLOW 33
+                #define BLUE 34
+                #define MAGENTA 35
+                #define CYAN 36
+                #define DEFAULT 0
+            */
+            case 'R':
+            {
+                setColor(RED);
+            }
+            case 'G':
+            {
+                setColor(GREEN);
+            }
+            case 'W':
+            {
+                setColor(WHITE);
+            }
+            case 'Y':
+            {
+                setColor(YELLOW);
+            }
+            case 'B':
+            {
+                setColor(BLUE);
+            }
+            case 'M':
+            {
+                setColor(MAGENTA);
+            }
+            case 'C':
+            {
+                setColor(CYAN);
+            }
+            case 'D':
+            {
+                setColor(DEFAULT);
+            }
             default:
                 *dst++ = *src++;
                 break;
@@ -326,7 +368,7 @@ void loop()
     if (rcfile == NULL)
     {
         rcfile = fopen(".ballrc", "w");
-        fprintf(rcfile, "The ball shell configuration file.\n  You should put a newline without any spaces after if you want to declare a keyword or a meaning or a startup commands(must be put last).\n  Keyword start with !, values start with @, startup commands start with $.\n  string modifiers for PISS: %%n - newline %%u - user %% h - hostname %%p - current path\n!PISS\n@%%u@%%h  %%p %%n#   \n!ALIAS\n\n!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
+        fprintf(rcfile, "The ball shell configuration file.\n  You should put a newline without any spaces after if you want to declare a keyword or a meaning or a startup commands(must be put last).\n  Keyword start with !, values start with @, startup commands start with $.\n  string modifiers for PISS: %%n - newline %%u - user %% h - hostname %%p - current path\n  Colors(start with %%) are just the capital first letter of color. For example: %%C - cyan \n!PISS\n@%%u@%%h  %%p %%n#   \n!ALIAS\n\n!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
         fclose(rcfile);
         rcfile = fopen(".ballrc", "r");
         conf = getConf(rcfile);
