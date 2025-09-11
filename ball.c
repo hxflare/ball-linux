@@ -27,9 +27,7 @@ void setColor(int color)
 // write but colored
 void cprint(char string[255], int colorCode)
 {
-    setColor(colorCode);
     write(1, string, strlen(string));
-    setColor(0);
 }
 // shell config.
 typedef struct shellConf
@@ -111,48 +109,16 @@ void formatEscape(char *string)
                 src += 2;
                 break;
             }
-            /*
-                #define RED 31
-                #define WHITE 37
-                #define GREEN 32
-                #define YELLOW 33
-                #define BLUE 34
-                #define MAGENTA 35
-                #define CYAN 36
-                #define DEFAULT 0
-            */
-            case 'R':
-            {
-                setColor(RED);
-            }
-            case 'G':
-            {
-                setColor(GREEN);
-            }
-            case 'W':
-            {
-                setColor(WHITE);
-            }
-            case 'Y':
-            {
-                setColor(YELLOW);
-            }
-            case 'B':
-            {
-                setColor(BLUE);
-            }
-            case 'M':
-            {
-                setColor(MAGENTA);
-            }
-            case 'C':
-            {
-                setColor(CYAN);
-            }
-            case 'D':
-            {
-                setColor(DEFAULT);
-            }
+            // Colors
+            case 'R': { strcpy(dst, "\033[31m"); dst += strlen("\033[31m"); src += 2; break; }
+            case 'G': { strcpy(dst, "\033[32m"); dst += strlen("\033[32m"); src += 2; break; }
+            case 'W': { strcpy(dst, "\033[37m"); dst += strlen("\033[37m"); src += 2; break; }
+            case 'Y': { strcpy(dst, "\033[33m"); dst += strlen("\033[33m"); src += 2; break; }
+            case 'B': { strcpy(dst, "\033[34m"); dst += strlen("\033[34m"); src += 2; break; }
+            case 'M': { strcpy(dst, "\033[35m"); dst += strlen("\033[35m"); src += 2; break; }
+            case 'C': { strcpy(dst, "\033[36m"); dst += strlen("\033[36m"); src += 2; break; }
+            case 'D': { strcpy(dst, "\033[0m");  dst += strlen("\033[0m");  src += 2; break; }
+
             default:
                 *dst++ = *src++;
                 break;
