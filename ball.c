@@ -222,6 +222,7 @@ void executeCommand(char command[255], shellConf config)
     if (strcmp(argv[0], "clear") == 0)
     {
         cprint("\e[1;1H\e[2J");
+        return;
     }
     // exit command
     if (strcmp(argv[0], "exit") == 0)
