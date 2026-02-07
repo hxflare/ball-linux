@@ -218,6 +218,11 @@ void executeCommand(char command[255], shellConf config)
             perror("not a directory");
         return;
     }
+    // clear command
+    if (strcmp(argv[0], "clear") == 0)
+    {
+        cprint("\e[1;1H\e[2J");
+    }
     // exit command
     if (strcmp(argv[0], "exit") == 0)
     {
