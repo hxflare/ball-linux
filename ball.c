@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +24,7 @@ void setColor(int color)
     write(1, buffer, len);
 }
 // write but colored
-void cprint(char string[255])
+void cprint(char *string)
 {
     write(1, string, strlen(string));
 }
