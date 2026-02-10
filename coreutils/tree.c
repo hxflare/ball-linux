@@ -7,11 +7,17 @@ void cprint(char *string)
 {
     write(1, string, strlen(string));
 }
+char* concat(const char *s1, const char *s2)
+{
+    char *result = malloc(strlen(s1) + strlen(s2) + 1);
+    strcpy(result, s1);
+    strcat(result, s2);
+    return result;
+}
 void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, int help,int stage){
     DIR *dir;
     struct dirent *entry;
     dir=opendir(path);
-    cprint("opendir\n");
     while ((entry = readdir(dir)) != NULL) {
         char *name=entry->d_name;
         unsigned char type=entry->d_type;
@@ -97,10 +103,9 @@ void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, 
                         break;
                 }
             }
-            
             cprint("\n");
             if (type==DT_DIR){
-                scan_dir(strcat(path,name), show_colors, show_filetypes, show_hidden, help, stage+1);
+                scan_dir(concat(concat(path,"/"), name), show_colors, show_filetypes, show_hidden, help, stage+1);
             }
         }
     }
