@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #define MARGIN 40
 void cprint(char *string)
 {
@@ -14,7 +15,16 @@ char* concat(const char *s1, const char *s2)
     strcat(result, s2);
     return result;
 }
-void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, int help,int stage){
+int str_isdigit(char *str){
+    for (int i=0;i<strlen(str);i++)
+    {
+        if (isdigit(str[i])==0){
+            return 0;
+        }
+    }
+    return 1;
+}
+void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, int help,int stage,int max_stage){
     DIR *dir;
     struct dirent *entry;
     dir=opendir(path);
@@ -53,9 +63,15 @@ void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, 
                         break;
                 }
             }
+            
             for (int i=0; i<stage; i++){
-                cprint("-");
+                if (i==0){
+                    cprint("    ");
+                }else{
+                    cprint("|   ");
+                }
             }
+            if (stage!=0){cprint("└---");}
             cprint(name);
             if(show_filetypes){
                 if (strlen(name)<MARGIN)
@@ -104,8 +120,8 @@ void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, 
                 }
             }
             cprint("\n");
-            if (type==DT_DIR){
-                scan_dir(concat(concat(path,"/"), name), show_colors, show_filetypes, show_hidden, help, stage+1);
+            if (type==DT_DIR&&(stage<=max_stage||max_stage==0)){
+                scan_dir(concat(concat(path,"/"), name), show_colors, show_filetypes, show_hidden, help, stage+1,max_stage);
             }
         }
     }
@@ -117,12 +133,18 @@ int main(int argc, char **argv)
     int show_filetypes=0;
     int show_colors=0;
     int help=0;
+    int max_stage=0;
     DIR *dir;
     struct dirent *entry;
     char *path=".";
     for (int i =1; i<argc;i++){
-        if (argv[i][0]!='-'){
-            path = argv[i];
+        if (argv[i][0]!='-'){   
+            if (str_isdigit(argv[i])==1){
+                max_stage=atoi(argv[i]);
+            }else
+            {
+                path = argv[i];
+            }
         }else{
             for(int k=1;k<(strlen(argv[i]));k++){
                 switch (argv[i][k]){
@@ -151,6 +173,6 @@ int main(int argc, char **argv)
         cprint("\n");
         exit(EXIT_FAILURE);
     }    
-    scan_dir(path, show_colors, show_filetypes, show_hidden, help, 0);
+    scan_dir(path, show_colors, show_filetypes, show_hidden, help, 0,3);
     return EXIT_SUCCESS;
 }
