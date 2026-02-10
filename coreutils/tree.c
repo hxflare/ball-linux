@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -120,8 +121,10 @@ void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, 
                 }
             }
             cprint("\n");
-            if (type==DT_DIR&&(stage<=max_stage||max_stage==0)){
-                scan_dir(concat(concat(path,"/"), name), show_colors, show_filetypes, show_hidden, help, stage+1,max_stage);
+            if (type==DT_DIR){
+                if(stage<max_stage||max_stage==0){
+                    scan_dir(concat(concat(path,"/"), name), show_colors, show_filetypes, show_hidden, help, stage+1,max_stage);
+                }
             }
         }
     }
@@ -140,6 +143,7 @@ int main(int argc, char **argv)
     for (int i =1; i<argc;i++){
         if (argv[i][0]!='-'){   
             if (str_isdigit(argv[i])==1){
+                
                 max_stage=atoi(argv[i]);
             }else
             {
@@ -173,6 +177,6 @@ int main(int argc, char **argv)
         cprint("\n");
         exit(EXIT_FAILURE);
     }    
-    scan_dir(path, show_colors, show_filetypes, show_hidden, help, 0,3);
+    scan_dir(path, show_colors, show_filetypes, show_hidden, help, 0,max_stage);
     return EXIT_SUCCESS;
 }
