@@ -7,6 +7,13 @@ void cprint(char *string) {
     write(1, string, strlen(string));
 }
 int main(int argc, char **argv) {
+    char *dpath =argv[1];
+    if (dpath[0]=='/'){
+        char *path=malloc(strlen(path)+3);
+        snprintf(path, strlen(path)+3, "./%s", dpath);
+    }else {
+        char *path=dpath;
+    }
     char *fullstr = NULL;
     char ch;
     FILE *fptr = fopen(argv[1], "r");
