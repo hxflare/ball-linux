@@ -25,7 +25,7 @@ int str_isdigit(char *str){
     }
     return 1;
 }
-void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, int help,int stage,int max_stage){
+void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, int help,int stage,int max_stage,int show_decorations){
     DIR *dir;
     struct dirent *entry;
     dir=opendir(path);
@@ -121,11 +121,15 @@ void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, 
                 }
             }
             cprint("\n");
+            char *npath=malloc(4096);
+            snprintf(npath, 4096, "%s/%s", path,name);
             if (type==DT_DIR){
-                if(stage<max_stage||max_stage==0){
-                    scan_dir(concat(concat(path,"/"), name), show_colors, show_filetypes, show_hidden, help, stage+1,max_stage);
-                }
+                if (strcmp(name, ".")!=0&&strcmp(name, "..")){
+                if(stage<max_stage||max_stage==-1){
+                    scan_dir(npath, show_colors, show_filetypes, show_hidden, help, stage+1,max_stage,show_decorations);
+                }}
             }
+            free(npath);
         }
     }
     closedir(dir);
@@ -136,7 +140,8 @@ int main(int argc, char **argv)
     int show_filetypes=0;
     int show_colors=0;
     int help=0;
-    int max_stage=0;
+    int max_stage=-1;
+    int show_decorations=1;
     DIR *dir;
     struct dirent *entry;
     char *path=".";
@@ -161,11 +166,21 @@ int main(int argc, char **argv)
                     case 'c':
                         show_colors=1;
                         break;
+                    case 'd':
+                        show_decorations=0;
+                        break;
                     case 'i':
                         help=1;
                         break;
+                    case 's':
+                        if (str_isdigit(argv[i+1])){
+                            max_stage=atoi(argv[i+1]);
+                        }else {
+                            cprint("shi... max stage aint correct");
+                        }
+                        break;
                     default:
-                        cprint("invalid argument "); cprint(argv[i]); cprint("\n");
+                        cprint("shi.. invalid argument "); cprint(argv[i]); cprint("\n");
                         break;
                 }
             }
@@ -177,6 +192,6 @@ int main(int argc, char **argv)
         cprint("\n");
         exit(EXIT_FAILURE);
     }    
-    scan_dir(path, show_colors, show_filetypes, show_hidden, help, 0,max_stage);
+    scan_dir(path, show_colors, show_filetypes, show_hidden, help, 0,max_stage,show_decorations);
     return EXIT_SUCCESS;
 }
