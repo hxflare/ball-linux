@@ -3,4 +3,5 @@ ball
 .ballrc
 coreutils/l
 coreutils/tree
+coreutils/cat
 building/
