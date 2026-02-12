@@ -197,7 +197,6 @@ void executeCommand(char command[255], shellConf config)
         int aliasid = findStrInArr(argv[i], config.aliases);
         if (aliasid != -1)
         {
-            printf("alias detected");
             strcpy(argv[i], config.meanings[aliasid]);
         }
     }
@@ -210,6 +209,12 @@ void executeCommand(char command[255], shellConf config)
     args[argc] = NULL;
     // BUILTINS
     // cd command
+    // clear command
+    if (strcmp(argv[0], "clear") == 0)
+    {
+        cprint("\e[1;1H\e[2J");
+        return;
+    }
     if (strcmp(argv[0], "cd") == 0)
     {
         const char *dir = (argc > 1) ? argv[1] : getenv("HOME");
@@ -217,12 +222,7 @@ void executeCommand(char command[255], shellConf config)
             perror("not a directory");
         return;
     }
-    // clear command
-    if (strcmp(argv[0], "clear") == 0)
-    {
-        cprint("\e[1;1H\e[2J");
-        return;
-    }
+   
     // exit command
     if (strcmp(argv[0], "exit") == 0)
     {
