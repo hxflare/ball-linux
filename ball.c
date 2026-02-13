@@ -1,6 +1,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <termios.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -19,7 +20,32 @@ typedef struct shellConf
     char PISS[255];
     char paths[255][255];
 } shellConf;
+char **extract_args(char *command){
+    int raw_c=1;
+    for (int i=0;command[i];i++){
+        if (command[i]==' '){
+            raw_c++;
+        }
+    }
+    char **raw_args=malloc((raw_c+1)*sizeof(char *));
+    free(raw_args);
+}
+int execute(char mode, char *execd,shellConf config){
+    switch (mode){
+        case 'c':
+            //execute a normal command
+            //check if file is a path
 
+            break;
+        case 'f':
+            //execute a file
+            break;
+        default:
+            cprint("invalid mode");
+            return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
 // Get the shell config
 shellConf getConf(FILE *rc)
 {
@@ -93,6 +119,9 @@ shellConf getConf(FILE *rc)
 // Main shell loop
 void loop()
 {
+    
+}
+int main(int argc, char **argv){
     FILE *rcfile = fopen(".ballrc", "r");
     shellConf conf;
     // Config file creating and parsing
@@ -109,5 +138,14 @@ void loop()
     {
         conf = getConf(rcfile);
         fclose(rcfile);
+    }
+    if(argc>1){
+        // execute a shell script
+        for (int i=1;i<argc;i++){
+            execute('f', argv[i],conf);
+        }
+    }else{
+        //start the shell
+        loop();
     }
 }
