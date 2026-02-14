@@ -8,6 +8,41 @@
 #include <termios.h>
 #include <unistd.h>
 
+char *str_replace(char *orig, char *rep, char *with) {
+  char *result;
+  char *ins;
+  char *tmp;
+  int len_rep;
+  int len_with;
+  int len_front;
+  int count;
+  if (!orig || !rep)
+    return NULL;
+  len_rep = strlen(rep);
+  if (len_rep == 0)
+    return NULL;
+  if (!with)
+    with = "";
+  len_with = strlen(with);
+  ins = orig;
+  for (count = 0; (tmp = strstr(ins, rep)); ++count) {
+    ins = tmp + len_rep;
+  }
+
+  tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+  if (!result)
+    return NULL;
+  while (count--) {
+    ins = strstr(orig, rep);
+    len_front = ins - orig;
+    tmp = strncpy(tmp, orig, len_front) + len_front;
+    tmp = strcpy(tmp, with) + len_with;
+    orig += len_front + len_rep;
+  }
+  strcpy(tmp, orig);
+  return result;
+}
 // write but colored
 void cprint(char *string) { write(1, string, strlen(string)); }
 // shell config.
@@ -22,7 +57,7 @@ void print_strlist(char **array) {
     printf("%s\n", array[i]);
   }
 }
-char **extract_args(char *command) {
+char **extract_args(char *command, shellConf config) {
   int raw_c = 1;
   int command_len = strlen(command);
 
@@ -33,43 +68,100 @@ char **extract_args(char *command) {
   }
 
   char **args = malloc((raw_c + 1) * sizeof(char *));
-  int arg_index = 0;
-  int i = 0;
+  {
+    int arg_index = 0;
+    int i = 0;
 
-  while (i < command_len) {
-    while (i < command_len && command[i] == ' ')
-      i++;
-    if (i >= command_len)
-      break;
-    char cur_arg[256];
-    int cur_len = 0;
-    if (command[i] == '"') {
-      i++;
-      while (i < command_len && command[i] != '"') {
-        cur_arg[cur_len++] = command[i++];
-      }
-      if (i < command_len)
+    while (i < command_len) {
+      while (i < command_len && command[i] == ' ')
         i++;
-    } else {
-      while (i < command_len && command[i] != ' ') {
-        if(command[i]=='~'){
-          i++;
-          char *username=getlogin();
-          char homepath[256];
-          snprintf(homepath, sizeof(homepath), "/home/%s", username);
-          for (int p=0;p<(int)strlen(homepath);p++){
-            cur_arg[cur_len++]=homepath[p];
-          }
+      if (i >= command_len)
+        break;
+      char cur_arg[256];
+      int cur_len = 0;
+      if (command[i] == '"') {
+        i++;
+        while (i < command_len && command[i] != '"') {
+          cur_arg[cur_len++] = command[i++];
         }
-        cur_arg[cur_len++] = command[i++];
+        if (i < command_len)
+          i++;
+      } else {
+        while (i < command_len && command[i] != ' ') {
+          if (command[i] == '~') {
+            i++;
+            char *username = getlogin();
+            char homepath[256];
+            snprintf(homepath, sizeof(homepath), "/home/%s", username);
+            for (int p = 0; p < (int)strlen(homepath); p++) {
+              cur_arg[cur_len++] = homepath[p];
+            }
+          }
+          cur_arg[cur_len++] = command[i++];
+        }
+      }
+      cur_arg[cur_len] = '\0';
+      args[arg_index++] = strdup(cur_arg);
+    }
+    args[arg_index] = NULL;
+  }
+  char **aliased = malloc((raw_c + 1) * sizeof(char *));
+  {
+    int arg_index = 0;
+    int i = 0;
+    while (args[i] != NULL) {
+      int j = 0;
+      while (config.aliases[j] != NULL) {
+        str_replace(args[i], config.aliases[j], config.meanings[j]);
+        j++;
+      }
+      
+      int command_len = strlen(args[i]);
+      i++;
+      int k = 0;
+
+      
+      
+      while (k < command_len) {
+        char cur_arg[256];
+        int cur_len = 0;
+        if (k >= command_len) {
+          break;
+        }
+        while (k < command_len && args[i][k] == ' ') {
+          k++;
+        }
+        if (args[i][k] == '"') {
+          k++;
+          while (k < command_len && args[i][k] != '"') {
+            cur_arg[cur_len++] = args[i][k++];
+          }
+          if (k < command_len)
+            k++;
+        } else {
+          while (k < command_len && args[i][k] != ' ') {
+            if (args[i][k] == '~') {
+              k++;
+              char *username = getlogin();
+              char homepath[256];
+              snprintf(homepath, sizeof(homepath), "/home/%s", username);
+              for (int p = 0; p < (int)strlen(homepath); p++) {
+                cur_arg[cur_len++] = homepath[p];
+              }
+            }
+            
+            cur_arg[cur_len++] = args[i][k++];
+          }
+          
+        }
+        cur_arg[cur_len] = '\0';
+        aliased[arg_index]=strdup(cur_arg);
+        arg_index++;
       }
     }
-    cur_arg[cur_len] = '\0';
-    args[arg_index++] = strdup(cur_arg);
+    aliased[arg_index]=NULL;
+    return aliased;
   }
-
-  args[arg_index] = NULL;
-  return args;
 }
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
@@ -147,9 +239,7 @@ shellConf getConf(FILE *rc) {
 // Main shell loop
 void loop() {}
 int main(int argc, char **argv) {
-  char **args = extract_args("ls ~/PicturesfromHell -lh");
-  print_strlist(args);
-  /*
+
   FILE *rcfile = fopen(".ballrc", "r");
   shellConf conf;
   // Config file creating and parsing
@@ -173,6 +263,9 @@ int main(int argc, char **argv) {
     conf = getConf(rcfile);
     fclose(rcfile);
   }
+  char **args = extract_args("l ~/PicturesfromHell -a", conf);
+  print_strlist(args);
+  /*
   if (argc > 1) {
     // execute a shell script
     for (int i = 1; i < argc; i++) {
