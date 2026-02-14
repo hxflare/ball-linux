@@ -52,6 +52,15 @@ char **extract_args(char *command) {
         i++;
     } else {
       while (i < command_len && command[i] != ' ') {
+        if(command[i]=='~'){
+          i++;
+          char *username=getlogin();
+          char homepath[256];
+          snprintf(homepath, sizeof(homepath), "/home/%s", username);
+          for (int p=0;p<(int)strlen(homepath);p++){
+            cur_arg[cur_len++]=homepath[p];
+          }
+        }
         cur_arg[cur_len++] = command[i++];
       }
     }
@@ -138,7 +147,7 @@ shellConf getConf(FILE *rc) {
 // Main shell loop
 void loop() {}
 int main(int argc, char **argv) {
-  char **args = extract_args("ls \"/home/hxflare/Pictures from Hell\" -lh");
+  char **args = extract_args("ls ~/PicturesfromHell -lh");
   print_strlist(args);
   /*
   FILE *rcfile = fopen(".ballrc", "r");
