@@ -7,7 +7,19 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-
+typedef enum exec_types{
+  execute_normal=0,
+  piped_into=1,
+  overwrite_file=2,
+  appended_to_file=3,
+  or=4,
+  background=5,
+  and=6
+}exec_types;
+typedef struct exec_batch{
+  char *commands;
+  exec_types type;
+}exec_batch;
 char *str_replace(char *orig, char *rep, char *with) {
   char *result;
   char *ins;
