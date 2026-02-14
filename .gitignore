@@ -5,4 +5,5 @@ coreutils/l
 coreutils/tree
 coreutils/cat
 coreutils/clear
+coreutils/touch
 building/
