@@ -43,9 +43,7 @@ char *str_replace(char *orig, char *rep, char *with) {
   strcpy(tmp, orig);
   return result;
 }
-// write but colored
 void cprint(char *string) { write(1, string, strlen(string)); }
-// shell config.
 typedef struct shellConf {
   char aliases[255][255];
   char meanings[255][255];
@@ -60,18 +58,15 @@ void print_strlist(char **array) {
 char **extract_args(char *command, shellConf config) {
   int raw_c = 1;
   int command_len = strlen(command);
-
   for (int i = 1; i < command_len; i++) {
     if (command[i] == ' ' && command[i - 1] != ' ') {
       raw_c++;
     }
   }
-
   char **args = malloc((raw_c + 1) * sizeof(char *));
   {
     int arg_index = 0;
     int i = 0;
-
     while (i < command_len) {
       while (i < command_len && command[i] == ' ')
         i++;
@@ -105,42 +100,42 @@ char **extract_args(char *command, shellConf config) {
     }
     args[arg_index] = NULL;
   }
-  char **aliased = malloc((raw_c + 1) * sizeof(char *));
+  char **aliased = malloc((raw_c * 16 + 1) * sizeof(char *));
   {
     int arg_index = 0;
     int i = 0;
     while (args[i] != NULL) {
       int j = 0;
-      while (config.aliases[j] != NULL) {
-        str_replace(args[i], config.aliases[j], config.meanings[j]);
+      while (config.aliases[j][0] != '\0') {
+        char *replaced = str_replace(args[i], config.aliases[j], config.meanings[j]);
+        if (replaced != NULL) {
+          free(args[i]);
+          args[i] = replaced;
+        }
         j++;
       }
-      
-      int command_len = strlen(args[i]);
+      char *cur = args[i];
+      int cur_len_total = strlen(cur);
       i++;
       int k = 0;
-
-      
-      
-      while (k < command_len) {
+      while (k < cur_len_total) {
         char cur_arg[256];
         int cur_len = 0;
-        if (k >= command_len) {
+        while (k < cur_len_total && cur[k] == ' ') {
+          k++;
+        }
+        if (k >= cur_len_total)
           break;
-        }
-        while (k < command_len && args[i][k] == ' ') {
+        if (cur[k] == '"') {
           k++;
-        }
-        if (args[i][k] == '"') {
-          k++;
-          while (k < command_len && args[i][k] != '"') {
-            cur_arg[cur_len++] = args[i][k++];
+          while (k < cur_len_total && cur[k] != '"') {
+            cur_arg[cur_len++] = cur[k++];
           }
-          if (k < command_len)
+          if (k < cur_len_total)
             k++;
         } else {
-          while (k < command_len && args[i][k] != ' ') {
-            if (args[i][k] == '~') {
+          while (k < cur_len_total && cur[k] != ' ') {
+            if (cur[k] == '~') {
               k++;
               char *username = getlogin();
               char homepath[256];
@@ -149,29 +144,23 @@ char **extract_args(char *command, shellConf config) {
                 cur_arg[cur_len++] = homepath[p];
               }
             }
-            
-            cur_arg[cur_len++] = args[i][k++];
+            cur_arg[cur_len++] = cur[k++];
           }
-          
         }
         cur_arg[cur_len] = '\0';
-        aliased[arg_index]=strdup(cur_arg);
-        arg_index++;
+        aliased[arg_index++] = strdup(cur_arg);
       }
     }
-    aliased[arg_index]=NULL;
+    aliased[arg_index] = NULL;
+    free(args);
     return aliased;
   }
 }
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
   case 'c':
-    // execute a normal command
-    // check if file is a path
-
     break;
   case 'f':
-    // execute a file
     break;
   default:
     cprint("invalid mode");
@@ -179,7 +168,6 @@ int execute(char mode, char *execd, shellConf config) {
   }
   return EXIT_SUCCESS;
 }
-// Get the shell config
 shellConf getConf(FILE *rc) {
   char line[1024];
   char loaded[90][1024];
@@ -191,12 +179,11 @@ shellConf getConf(FILE *rc) {
   }
   for (int i = 0; i < ammount; i++) {
     if (loaded[i][0] == '!') {
-      char keyword[10];
+      char keyword[1024];
       char values[50][255];
       int valueCount = 0;
       loaded[i][strcspn(loaded[i], "\n")] = 0;
       strcpy(keyword, loaded[i]);
-      // Assign the values which it finds to the keyword
       for (int j = i + 1; j < ammount; j++) {
         if (loaded[j][0] == '@') {
           strcpy(values[valueCount], loaded[j]);
@@ -205,14 +192,11 @@ shellConf getConf(FILE *rc) {
           break;
         }
       }
-      // Piss formating
       if (strcmp(keyword, "!PISS") == 0) {
         char *format = values[0] + 1;
         format[strcspn(format, "\n")] = 0;
         strcpy(config.PISS, format);
-      }
-      // Alias formating
-      else if (strcmp(keyword, "!ALIAS") == 0) {
+      } else if (strcmp(keyword, "!ALIAS") == 0) {
         for (int i = 0; i < valueCount; i++) {
           char *format = values[i] + 1;
           format[strcspn(format, "\n")] = 0;
@@ -223,9 +207,7 @@ shellConf getConf(FILE *rc) {
           strcpy(config.aliases[i], format);
           strcpy(config.meanings[i], eq + 1);
         }
-      }
-      // Path formating
-      else if (strcmp(keyword, "!PATH") == 0) {
+      } else if (strcmp(keyword, "!PATH") == 0) {
         for (int i = 0; i < valueCount; i++) {
           char *format = values[i] + 1;
           format[strcspn(format, "\n")] = 0;
@@ -236,13 +218,10 @@ shellConf getConf(FILE *rc) {
   }
   return config;
 }
-// Main shell loop
 void loop() {}
 int main(int argc, char **argv) {
-
   FILE *rcfile = fopen(".ballrc", "r");
   shellConf conf;
-  // Config file creating and parsing
   if (rcfile == NULL) {
     rcfile = fopen(".ballrc", "w");
     fprintf(rcfile,
@@ -265,14 +244,4 @@ int main(int argc, char **argv) {
   }
   char **args = extract_args("l ~/PicturesfromHell -a", conf);
   print_strlist(args);
-  /*
-  if (argc > 1) {
-    // execute a shell script
-    for (int i = 1; i < argc; i++) {
-      execute('f', argv[i], conf);
-    }
-  } else {
-    // start the shell
-    loop();
-  }*/
 }
