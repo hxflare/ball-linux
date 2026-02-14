@@ -156,6 +156,48 @@ char **extract_args(char *command, shellConf config) {
     return aliased;
   }
 }
+char *formatPISS(shellConf config){
+  int normal_len=strlen(config.PISS);
+  char *prompt=malloc(normal_len*2);
+  char *PISS=config.PISS;
+  int cur_char_i=0;
+  for (int i=0;i<normal_len;i++){
+    if(PISS[i]!='%'){
+      prompt[cur_char_i]=PISS[i];
+      cur_char_i++;
+    }else {
+      char escape_ident=PISS[i+1];
+      i+=1;
+      char *insert_str;
+      switch (escape_ident) {
+        case 'n':
+          insert_str="\n";
+          break;
+        case 'u':
+          insert_str=getlogin();
+          break;
+        case 'p':
+          insert_str=getcwd(NULL, 0);
+          break;
+        case 'h':
+          insert_str=malloc(256);
+          gethostname(insert_str, 256);
+          break;
+        default:
+          insert_str="";
+          break;
+      }
+      int insert_len=strlen(insert_str);
+      for(int k=0;k<insert_len;k++){
+        prompt[cur_char_i]=insert_str[k];
+        cur_char_i++;
+      }
+    }
+    
+  }
+  prompt[cur_char_i]='\0';
+  return prompt;
+}
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
   case 'c':
@@ -242,6 +284,7 @@ int main(int argc, char **argv) {
     conf = getConf(rcfile);
     fclose(rcfile);
   }
-  char **args = extract_args("l ~/PicturesfromHell -a", conf);
-  print_strlist(args);
+  //char **args = extract_args("l ~/PicturesfromHell -a", conf);
+  //print_strlist(args);
+  cprint(formatPISS(conf));
 }
