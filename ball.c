@@ -17,51 +17,50 @@ typedef struct shellConf {
   char PISS[255];
   char paths[255][255];
 } shellConf;
-void print_strlist(char **array){
-    for (int i = 0; array[i] != NULL; i++){
-        printf("%s\n", array[i]);
-    }
+void print_strlist(char **array) {
+  for (int i = 0; array[i] != NULL; i++) {
+    printf("%s\n", array[i]);
+  }
 }
 char **extract_args(char *command) {
-    int raw_c = 1;
-    int command_len = strlen(command);
+  int raw_c = 1;
+  int command_len = strlen(command);
 
-    for (int i = 1; i < command_len; i++) {
-        if (command[i] == ' ' && command[i - 1] != ' ') {
-            raw_c++;
-        }
+  for (int i = 1; i < command_len; i++) {
+    if (command[i] == ' ' && command[i - 1] != ' ') {
+      raw_c++;
     }
+  }
 
-    char **args = malloc((raw_c + 1) * sizeof(char *));
-    int arg_index = 0;
-    int i = 0;
+  char **args = malloc((raw_c + 1) * sizeof(char *));
+  int arg_index = 0;
+  int i = 0;
 
-    while (i < command_len) {
-        while (i < command_len && command[i] == ' ') i++;
-        if (i >= command_len) break;
-
-        char cur_arg[256];
-        int cur_len = 0;
-
-        if (command[i] == '"') {
-            i++; 
-            while (i < command_len && command[i] != '"') {
-                cur_arg[cur_len++] = command[i++];
-            }
-            if (i < command_len) i++;
-        } else {
-
-            while (i < command_len && command[i] != ' ') {
-                cur_arg[cur_len++] = command[i++];
-            }
-        }
-
-        cur_arg[cur_len] = '\0';
-        args[arg_index++] = strdup(cur_arg);
+  while (i < command_len) {
+    while (i < command_len && command[i] == ' ')
+      i++;
+    if (i >= command_len)
+      break;
+    char cur_arg[256];
+    int cur_len = 0;
+    if (command[i] == '"') {
+      i++;
+      while (i < command_len && command[i] != '"') {
+        cur_arg[cur_len++] = command[i++];
+      }
+      if (i < command_len)
+        i++;
+    } else {
+      while (i < command_len && command[i] != ' ') {
+        cur_arg[cur_len++] = command[i++];
+      }
     }
+    cur_arg[cur_len] = '\0';
+    args[arg_index++] = strdup(cur_arg);
+  }
 
-    args[arg_index] = NULL;
-    return args;
+  args[arg_index] = NULL;
+  return args;
 }
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
@@ -139,7 +138,7 @@ shellConf getConf(FILE *rc) {
 // Main shell loop
 void loop() {}
 int main(int argc, char **argv) {
-  char **args=extract_args("ls -lh");
+  char **args = extract_args("ls \"/home/hxflare/Pictures from Hell\" -lh");
   print_strlist(args);
   /*
   FILE *rcfile = fopen(".ballrc", "r");
