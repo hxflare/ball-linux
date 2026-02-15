@@ -328,7 +328,7 @@ shellConf getConf(FILE *rc) {
   }
   for (int i = 0; i < ammount; i++) {
     if (loaded[i][0] == '!') {
-      char keyword[1024];
+      char keyword[16];
       char values[50][255];
       int valueCount = 0;
       loaded[i][strcspn(loaded[i], "\n")] = 0;
@@ -363,6 +363,8 @@ shellConf getConf(FILE *rc) {
           strcpy(config.paths[i], format);
         }
       }
+    }else if (loaded[i][0]=='$') {
+      execute('c', loaded[i]+1, config);
     }
   }
   return config;
