@@ -7,19 +7,19 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-typedef enum exec_types{
-  execute_normal=0,
-  piped_into=1,
-  overwrite_file=2,
-  appended_to_file=3,
-  or=4,
-  background=5,
-  and=6
-}exec_types;
-typedef struct exec_batch{
-  char *commands;
+typedef enum exec_types {
+  normal = 0,
+  piped_out_of = 1,
+  overwrite_file = 2,
+  append_to_file = 3,
+  or = 4,
+  background = 5,
+  and = 6
+} exec_types;
+typedef struct exec_batch {
+  char *command;
   exec_types type;
-}exec_batch;
+} exec_batch;
 char *str_replace(char *orig, char *rep, char *with) {
   char *result;
   char *ins;
@@ -119,7 +119,8 @@ char **extract_args(char *command, shellConf config) {
     while (args[i] != NULL) {
       int j = 0;
       while (config.aliases[j][0] != '\0') {
-        char *replaced = str_replace(args[i], config.aliases[j], config.meanings[j]);
+        char *replaced =
+            str_replace(args[i], config.aliases[j], config.meanings[j]);
         if (replaced != NULL) {
           free(args[i]);
           args[i] = replaced;
@@ -168,46 +169,125 @@ char **extract_args(char *command, shellConf config) {
     return aliased;
   }
 }
-char *formatPISS(shellConf config){
-  int normal_len=strlen(config.PISS);
-  char *prompt=malloc(normal_len*2);
-  char *PISS=config.PISS;
-  int cur_char_i=0;
-  for (int i=0;i<normal_len;i++){
-    if(PISS[i]!='%'){
-      prompt[cur_char_i]=PISS[i];
-      cur_char_i++;
-    }else {
-      char escape_ident=PISS[i+1];
-      i+=1;
-      char *insert_str;
-      switch (escape_ident) {
-        case 'n':
-          insert_str="\n";
+exec_batch *get_exec_order(char *raw) {
+  int len = strlen(raw);
+  char *cur_command = malloc(256);
+  int cur_len = 0;
+  int del_amount = 0;
+  for (int i = 0; i < len; i++) {
+    if (raw[i] == ';' || raw[i] == '|' || raw[i] == '&' || raw[i] == '>' ||
+        raw[i] == '^' || raw[i] == '@' || raw[i] == ':') {
+      del_amount++;
+    }
+  }
+  exec_batch *order = malloc(sizeof(exec_batch) * (del_amount + 1));
+  int i = 0;
+  int quoted = 0;
+  int index = 0;
+  while (raw[i] != '\0') {
+    if (raw[i] == '"') {
+      if (quoted==1)
+        quoted = 0;
+      if (quoted==0)
+        quoted = 1;
+    }
+    if ((raw[i] == ';' || raw[i] == '|' || raw[i] == '&' || raw[i] == '>' ||
+        raw[i] == '^' || raw[i] == '@' || raw[i] == ':')&&quoted==0) {
+      
+      if (cur_len > 0) {
+        cur_command[cur_len] = '\0';
+        cur_len = 0;
+        order[index].command = strdup(cur_command);
+        switch (raw[i]) {
+        case ';':
+          order[index].type = normal;
           break;
-        case 'u':
-          insert_str=getlogin();
+        case '|':
+          order[index].type = piped_out_of;
           break;
-        case 'p':
-          insert_str=getcwd(NULL, 0);
+        case '^':
+          order[index].type = overwrite_file;
           break;
-        case 'h':
-          insert_str=malloc(256);
-          gethostname(insert_str, 256);
+        case '>':
+          order[index].type = append_to_file;
+          break;
+        case '&':
+          order[index].type = background;
+          break;
+        case '@':
+          order[index].type = and;
+          break;
+        case ':':
+          order[index].type = or;
           break;
         default:
-          insert_str="";
+          order[index].type = normal;
           break;
+        }
+        i++;
+        index++;
       }
-      int insert_len=strlen(insert_str);
-      for(int k=0;k<insert_len;k++){
-        prompt[cur_char_i]=insert_str[k];
+
+    } else {
+      cur_command[cur_len] = raw[i];
+      cur_len++;
+    }
+    i++;
+  }
+  if (cur_len > 0) {
+    cur_command[cur_len] = '\0';
+    order[index].command = strdup(cur_command);
+    order[index].type = normal;
+  }
+  free(cur_command);
+  return order;
+}
+char *formatPISS(shellConf config) {
+  int normal_len = strlen(config.PISS);
+  char *prompt = malloc(normal_len * 2);
+  char *PISS = config.PISS;
+  int cur_char_i = 0;
+  for (int i = 0; i < normal_len; i++) {
+    if (PISS[i] != '%') {
+      prompt[cur_char_i] = PISS[i];
+      cur_char_i++;
+    } else {
+      char escape_ident = PISS[i + 1];
+      i += 1;
+      char *insert_str;
+      switch (escape_ident) {
+      case 'n':
+        insert_str = "\n";
+        break;
+      case 'u':
+        insert_str = getlogin();
+        break;
+      case 'p':
+        char *cur_dir = getcwd(NULL, 0);
+        char *usern = getlogin();
+        char homedir[256];
+        snprintf(homedir, 256, "/home/%s", usern);
+        insert_str = str_replace(cur_dir, homedir, "~");
+        break;
+      case 'P':
+        insert_str = getcwd(NULL, 0);
+        break;
+      case 'h':
+        insert_str = malloc(256);
+        gethostname(insert_str, 256);
+        break;
+      default:
+        insert_str = "";
+        break;
+      }
+      int insert_len = strlen(insert_str);
+      for (int k = 0; k < insert_len; k++) {
+        prompt[cur_char_i] = insert_str[k];
         cur_char_i++;
       }
     }
-    
   }
-  prompt[cur_char_i]='\0';
+  prompt[cur_char_i] = '\0';
   return prompt;
 }
 int execute(char mode, char *execd, shellConf config) {
@@ -284,7 +364,8 @@ int main(int argc, char **argv) {
             "meaning or a startup commands(must be put last).\n  Keyword start "
             "with !, values start with @, startup commands start with $.\n  "
             "string modifiers for PISS: %%n - newline %%u - user %%h - "
-            "hostname %%p - current path\n  Colors - use ascii color codes "
+            "hostname %%p - current path %%P - current full path\n  Colors - "
+            "use ascii color codes "
             "\n\n \n!PISS\n@%%u@%%h  %%p %%n#   "
             "\n!ALIAS\n\n!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/"
             "usr/sbin\n");
@@ -296,7 +377,11 @@ int main(int argc, char **argv) {
     conf = getConf(rcfile);
     fclose(rcfile);
   }
-  //char **args = extract_args("l ~/PicturesfromHell -a", conf);
-  //print_strlist(args);
-  cprint(formatPISS(conf));
+  exec_batch *order = get_exec_order("f; cprint ass| gay \"homori^ ass\"");
+  int i = 0;
+  while (1) {
+    cprint(order[i].command);
+    cprint("\n");
+    i++;
+  }
 }
