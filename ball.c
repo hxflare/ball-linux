@@ -8,12 +8,14 @@
 #include <termios.h>
 #include <unistd.h>
 struct termios orig_termios;
-void enable_term_rawmode(){
+void disableRawMode() { tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios); }
+void enable_term_rawmode() {
   tcgetattr(STDIN_FILENO, &orig_termios);
-  struct termios raw=orig_termios;
-  raw.c_lflag &= ~(ECHO | ICANON);
-  raw.c_cc[VMIN]=1;
-  raw.c_cc[VTIME]=0;
+  atexit(disableRawMode);
+  struct termios raw = orig_termios;
+  raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+  raw.c_cc[VMIN] = 1;
+  raw.c_cc[VTIME] = 0;
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 typedef enum exec_types {
@@ -195,14 +197,15 @@ exec_batch *get_exec_order(char *raw) {
   int index = 0;
   while (raw[i] != '\0') {
     if (raw[i] == '"') {
-      if (quoted==1)
+      if (quoted == 1)
         quoted = 0;
-      if (quoted==0)
+      if (quoted == 0)
         quoted = 1;
     }
     if ((raw[i] == ';' || raw[i] == '|' || raw[i] == '&' || raw[i] == '>' ||
-        raw[i] == '^' || raw[i] == '@' || raw[i] == ':')&&quoted==0) {
-      
+         raw[i] == '^' || raw[i] == '@' || raw[i] == ':') &&
+        quoted == 0) {
+
       if (cur_len > 0) {
         cur_command[cur_len] = '\0';
         cur_len = 0;
@@ -302,6 +305,9 @@ char *formatPISS(shellConf config) {
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
   case 'c':
+    cprint("executing command ");
+    cprint(execd);
+    cprint("\n");
     break;
   case 'f':
     break;
@@ -361,7 +367,30 @@ shellConf getConf(FILE *rc) {
   }
   return config;
 }
-void loop() {}
+void loop(shellConf config) {
+  char *piss = formatPISS(config);
+  cprint(piss);
+  char cur_c;
+  char *command = malloc(256);
+  int index = 0;
+  while (read(STDIN_FILENO, &cur_c, 1) == 1) {
+    if (cur_c != '\n') {
+      switch (cur_c) {
+      default:
+        command = realloc(command, 3 + index);
+        command[index] = cur_c;
+        index++;
+        break;
+      }
+
+    } else {
+      command[index] = '\0';
+      index = 0;
+      execute('c', command, config);
+      cprint(piss);
+    }
+  }
+}
 int main(int argc, char **argv) {
   FILE *rcfile = fopen(".ballrc", "r");
   shellConf conf;
@@ -386,11 +415,9 @@ int main(int argc, char **argv) {
     conf = getConf(rcfile);
     fclose(rcfile);
   }
-  exec_batch *order = get_exec_order("f; cprint ass| gay \"homori^ ass\"");
-  int i = 0;
-  while (1) {
-    cprint(order[i].command);
-    cprint("\n");
-    i++;
+  if (argc > 1) {
+
+  } else {
+    loop(conf);
   }
 }
