@@ -1,5 +1,6 @@
-# Ball
+# ball linux
 
-A tiny shell written in C.  
-I made this mostly to learn the c programming language, how shells and process handling work in linux.  
-**CAUTION**: This is not for usage. It’s buggy, incomplete, and generally ass. Please don’t actually use it for real work.
+linux based os i made because i didnt know what to call it.
+was supposed to be named ballsack os but i decided otherwise.
+
+it is bad, unsafe, useless, shit.
