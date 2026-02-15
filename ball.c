@@ -7,6 +7,15 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+struct termios orig_termios;
+void enable_term_rawmode(){
+  tcgetattr(STDIN_FILENO, &orig_termios);
+  struct termios raw=orig_termios;
+  raw.c_lflag &= ~(ECHO | ICANON);
+  raw.c_cc[VMIN]=1;
+  raw.c_cc[VTIME]=0;
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
 typedef enum exec_types {
   normal = 0,
   piped_out_of = 1,
