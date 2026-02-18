@@ -10,4 +10,5 @@ coreutils/touch
 =======
 ball_old.c
 >>>>>>> ball_rewrite
+coreutils/compileall.sh
 building/
