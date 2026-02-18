@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-//termios things
+// termios things
 struct termios orig_termios;
 void disableRawMode() { tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios); }
 void enable_term_rawmode() {
@@ -19,7 +19,7 @@ void enable_term_rawmode() {
   raw.c_cc[VTIME] = 0;
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
-// execution type. 
+// execution type.
 typedef enum exec_types {
   normal = 0,
   piped_out_of = 1,
@@ -85,8 +85,9 @@ void print_strlist(char **array) {
     printf("%s\n", array[i]);
   }
 }
-//tokenize and extract the arguments from a single command, better be called after get_exec_order
-char **extract_args(char *command, shellConf config) {
+// tokenize and extract the arguments from a single command, better be called
+// after get_exec_order
+char **extract_args(char *command, shellConf config, int *argc) {
   int raw_c = 1;
   int command_len = strlen(command);
   for (int i = 1; i < command_len; i++) {
@@ -183,12 +184,13 @@ char **extract_args(char *command, shellConf config) {
         aliased[arg_index++] = strdup(cur_arg);
       }
     }
+    *argc = arg_index;
     aliased[arg_index] = NULL;
     free(args);
     return aliased;
   }
 }
-// get the execution order and types of command execution 
+// get the execution order and types of command execution
 exec_batch *get_exec_order(char *raw) {
   int len = strlen(raw);
   char *cur_command = malloc(256);
@@ -318,24 +320,53 @@ int execute(char mode, char *execd, shellConf config) {
   case 'c':
 
     extern char **environ;
-    exec_batch *order=get_exec_order(execd);
-    int i=0;
-    while (order[i].command!=NULL) {
-      char **args=extract_args(order[i].command, config);
-      pid_t forked=fork();
-      int status;
-      if(forked==0){
-        // child;
-        if(strchr(args[0], '/')){
-          execve(args[0],args,environ);
-          exit(1);
+    exec_batch *order = get_exec_order(execd);
+    int i = 0;
+    while (order[i].command != NULL) {
+      int argc;
+      char **args = extract_args(order[i].command, config, &argc);
+      if (strcmp(args[0], "cd") == 0) {
+        const char *dir = (argc > 1) ? args[1] : getenv("HOME");
+        if (chdir(dir) != 0)
+          perror("not a directory");
+        return EXIT_SUCCESS;
+      } else if (strcmp(args[0], "clear") == 0) {
+        cprint("\e[1;1H\e[2J");
+        return EXIT_SUCCESS;
+      } else if (strcmp(args[0], "exit") == 0) {
+        exit(0);
+      } else if (strcmp(args[0], "export") == 0 && argc > 1) {
+        char *eq = strchr(args[1], '=');
+        if (eq) {
+          *eq = '\0';
+          setenv(args[1], eq + 1, 1);
         }
-      }else if (forked==-1) {
-        cprint("FORK NOT FOUND IN KITCHEN\n");
+        return EXIT_SUCCESS;
       }
-      else{
-       // parent
-        if(waitpid(forked,&status,0)==-1){
+      pid_t forked = fork();
+      int status;
+      if (forked == 0) {
+        // child;
+        if (strchr(args[0], '/')) {
+          execve(args[0], args, environ);
+          exit(1);
+        } else {
+          // no path command.
+          int k = 0;
+          while (config.paths[k] != NULL) {
+            char *full_path =
+                malloc(sizeof(order[i].command) + strlen(config.paths[k]) + 4);
+            snprintf(full_path, sizeof(full_path), "%s/%s", config.paths[k],
+                     args[0]);
+            execve(full_path, args, environ);
+          }
+          exit(0);
+        }
+      } else if (forked == -1) {
+        cprint("FORK NOT FOUND IN KITCHEN\n");
+      } else {
+        // parent
+        if (waitpid(forked, &status, 0) == -1) {
           cprint("pid wait error\n");
           exit(EXIT_FAILURE);
         }
@@ -398,9 +429,6 @@ shellConf getConf(FILE *rc) {
           strcpy(config.paths[i], format);
         }
       }
-    }else if (loaded[i][0]=='$') {
-      loaded[i][strlen(loaded[i])-1]='\0';
-      execute('c', loaded[i]+1, config);
     }
   }
   return config;
@@ -426,6 +454,7 @@ void loop(shellConf config) {
       command[index] = '\0';
       index = 0;
       execute('c', command, config);
+      piss = formatPISS(config);
       cprint(piss);
     }
   }
@@ -457,7 +486,7 @@ int main(int argc, char **argv) {
   }
   if (argc > 1) {
     // execute files
-    for(int i=1; i<argc-1;i++){
+    for (int i = 1; i < argc - 1; i++) {
       execute('f', argv[argc], conf);
     }
   } else {
