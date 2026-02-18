@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+//termios things
 struct termios orig_termios;
 void disableRawMode() { tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios); }
 void enable_term_rawmode() {
@@ -18,6 +19,7 @@ void enable_term_rawmode() {
   raw.c_cc[VTIME] = 0;
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
+// execution type. 
 typedef enum exec_types {
   normal = 0,
   piped_out_of = 1,
@@ -27,10 +29,12 @@ typedef enum exec_types {
   background = 5,
   and = 6
 } exec_types;
+// command that needs to be executed an the execution type
 typedef struct exec_batch {
   char *command;
   exec_types type;
 } exec_batch;
+// replace a substring with another substring
 char *str_replace(char *orig, char *rep, char *with) {
   char *result;
   char *ins;
@@ -66,18 +70,22 @@ char *str_replace(char *orig, char *rep, char *with) {
   strcpy(tmp, orig);
   return result;
 }
+// write() wrapper
 void cprint(char *string) { write(1, string, strlen(string)); }
+// shell config
 typedef struct shellConf {
   char aliases[255][255];
   char meanings[255][255];
   char PISS[255];
   char paths[255][255];
 } shellConf;
+// print a list of strings, for debug purposes only right now.
 void print_strlist(char **array) {
   for (int i = 0; array[i] != NULL; i++) {
     printf("%s\n", array[i]);
   }
 }
+//tokenize and extract the arguments from a single command, better be called after get_exec_order
 char **extract_args(char *command, shellConf config) {
   int raw_c = 1;
   int command_len = strlen(command);
@@ -180,6 +188,7 @@ char **extract_args(char *command, shellConf config) {
     return aliased;
   }
 }
+// get the execution order and types of command execution 
 exec_batch *get_exec_order(char *raw) {
   int len = strlen(raw);
   char *cur_command = malloc(256);
@@ -254,6 +263,7 @@ exec_batch *get_exec_order(char *raw) {
   free(cur_command);
   return order;
 }
+// format the shell prompt with all the escape characters
 char *formatPISS(shellConf config) {
   int normal_len = strlen(config.PISS);
   char *prompt = malloc(normal_len * 2);
@@ -302,18 +312,43 @@ char *formatPISS(shellConf config) {
   prompt[cur_char_i] = '\0';
   return prompt;
 }
+// execute the command/file
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
   case 'c':
-    cprint("executing command ");
-    cprint(execd);
-    cprint("\n");
+
+    extern char **environ;
+    exec_batch *order=get_exec_order(execd);
+    int i=0;
+    while (order[i].command!=NULL) {
+      char **args=extract_args(order[i].command, config);
+      pid_t forked=fork();
+      int status;
+      if(forked==0){
+        // child;
+        if(strchr(args[0], '/')){
+          execve(args[0],args,environ);
+          exit(1);
+        }
+      }else if (forked==-1) {
+        cprint("FORK NOT FOUND IN KITCHEN\n");
+      }
+      else{
+       // parent
+        if(waitpid(forked,&status,0)==-1){
+          cprint("pid wait error\n");
+          exit(EXIT_FAILURE);
+        }
+      }
+      i++;
+    }
     break;
   case 'f':
     break;
   default:
     cprint("invalid mode");
     return EXIT_FAILURE;
+    break;
   }
   return EXIT_SUCCESS;
 }
@@ -364,11 +399,13 @@ shellConf getConf(FILE *rc) {
         }
       }
     }else if (loaded[i][0]=='$') {
+      loaded[i][strlen(loaded[i])-1]='\0';
       execute('c', loaded[i]+1, config);
     }
   }
   return config;
 }
+// main shell loop
 void loop(shellConf config) {
   char *piss = formatPISS(config);
   cprint(piss);
@@ -393,6 +430,7 @@ void loop(shellConf config) {
     }
   }
 }
+// entrypoint
 int main(int argc, char **argv) {
   FILE *rcfile = fopen(".ballrc", "r");
   shellConf conf;
@@ -418,7 +456,10 @@ int main(int argc, char **argv) {
     fclose(rcfile);
   }
   if (argc > 1) {
-
+    // execute files
+    for(int i=1; i<argc-1;i++){
+      execute('f', argv[argc], conf);
+    }
   } else {
     loop(conf);
   }
