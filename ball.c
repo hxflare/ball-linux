@@ -1,5 +1,4 @@
 #include <signal.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -210,7 +209,7 @@ exec_batch *get_exec_order(char *raw) {
     if (raw[i] == '"') {
       if (quoted == 1)
         quoted = 0;
-      if (quoted == 0)
+      else if (quoted == 0)
         quoted = 1;
     }
     if ((raw[i] == ';' || raw[i] == '|' || raw[i] == '&' || raw[i] == '>' ||
@@ -284,14 +283,12 @@ char *formatPISS(shellConf config) {
         insert_str = "\n";
         break;
       case 'u':
-        insert_str = getlogin();
+        insert_str = getenv("USER");
         break;
       case 'p':
-        char *cur_dir = getcwd(NULL, 0);
-        char *usern = getlogin();
-        char homedir[256];
-        snprintf(homedir, 256, "/home/%s", usern);
-        insert_str = str_replace(cur_dir, homedir, "~");
+        char *homedir=getenv("HOME");
+        char *cwd=malloc(256);
+        insert_str = str_replace(getcwd(cwd, 256), homedir, "~");
         break;
       case 'P':
         insert_str = getcwd(NULL, 0);
@@ -353,12 +350,14 @@ int execute(char mode, char *execd, shellConf config) {
         } else {
           // no path command.
           int k = 0;
-          while (config.paths[k] != NULL) {
+          while (config.paths[k][0] != '\0') {
             char *full_path =
                 malloc(sizeof(order[i].command) + strlen(config.paths[k]) + 4);
-            snprintf(full_path, sizeof(full_path), "%s/%s", config.paths[k],
-                     args[0]);
+            snprintf(full_path,
+                     sizeof(order[i].command) + strlen(config.paths[k]) + 4,
+                     "%s/%s", config.paths[k], args[0]);
             execve(full_path, args, environ);
+            k++;
           }
           exit(0);
         }
@@ -461,7 +460,10 @@ void loop(shellConf config) {
 }
 // entrypoint
 int main(int argc, char **argv) {
-  FILE *rcfile = fopen(".ballrc", "r");
+  FILE *rcfile;
+
+  rcfile = fopen("/etc/.ballrc", "r");
+
   shellConf conf;
   if (rcfile == NULL) {
     rcfile = fopen(".ballrc", "w");
