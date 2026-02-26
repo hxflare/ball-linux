@@ -16,7 +16,13 @@ int main(void) {
   setenv("HOME", "/root", 1);
   setenv("TERM", "linux", 1);
   char *argv[] = {"/bin/ball", NULL};
-  char *envp[] = {"HOME=/root", "TERM=linux", NULL};
+  char *envp[] = {
+    "PATH=/bin:/sbin:/usr/bin:/usr/local/bin",
+    "HOME=/root",
+    "TERM=linux",
+    "USER=root",
+    NULL
+};
   execve("/bin/ball", argv, envp);
   perror("shi.... execve failed");
   reboot(RB_AUTOBOOT);
