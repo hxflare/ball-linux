@@ -2,10 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-void cprint(char *string) {
-    write(1, string, strlen(string));
-}
+#include "../btools.h"
 int main(int argc, char **argv) {
     char *dpath =argv[1];
     if (dpath[0]=='/'){

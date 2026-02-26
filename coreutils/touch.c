@@ -2,10 +2,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <utime.h>
-void cprint(char *string)
-{
-    write(1, string, sizeof(string));
-}
+#include "../btools.h"
 int touch(char *filename) {
     int fd=open(filename, O_WRONLY | O_CREAT,0644);
     if (fd==-1){

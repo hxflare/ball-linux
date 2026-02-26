@@ -4,27 +4,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include "../btools.h"
 #define MARGIN 40
-void cprint(char *string)
-{
-    write(1, string, strlen(string));
-}
-char* concat(const char *s1, const char *s2)
-{
-    char *result = malloc(strlen(s1) + strlen(s2) + 1);
-    strcpy(result, s1);
-    strcat(result, s2);
-    return result;
-}
-int str_isdigit(char *str){
-    for (int i=0;i<strlen(str);i++)
-    {
-        if (isdigit(str[i])==0){
-            return 0;
-        }
-    }
-    return 1;
-}
+
 void scan_dir(char *path, int show_colors, int show_filetypes, int show_hidden, int help,int stage,int max_stage,int show_decorations){
     DIR *dir;
     struct dirent *entry;

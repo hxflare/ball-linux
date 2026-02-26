@@ -1,14 +1,18 @@
+#include "btools.h"
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
-// termios things
+
 struct termios orig_termios;
+
 void disableRawMode() { tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios); }
+
 void enable_term_rawmode() {
   tcgetattr(STDIN_FILENO, &orig_termios);
   atexit(disableRawMode);
@@ -18,7 +22,7 @@ void enable_term_rawmode() {
   raw.c_cc[VTIME] = 0;
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
-// execution type.
+
 typedef enum exec_types {
   normal = 0,
   piped_out_of = 1,
@@ -28,64 +32,19 @@ typedef enum exec_types {
   background = 5,
   and = 6
 } exec_types;
-// command that needs to be executed an the execution type
+
 typedef struct exec_batch {
   char *command;
   exec_types type;
 } exec_batch;
-// replace a substring with another substring
-char *str_replace(char *orig, char *rep, char *with) {
-  char *result;
-  char *ins;
-  char *tmp;
-  int len_rep;
-  int len_with;
-  int len_front;
-  int count;
-  if (!orig || !rep)
-    return NULL;
-  len_rep = strlen(rep);
-  if (len_rep == 0)
-    return NULL;
-  if (!with)
-    with = "";
-  len_with = strlen(with);
-  ins = orig;
-  for (count = 0; (tmp = strstr(ins, rep)); ++count) {
-    ins = tmp + len_rep;
-  }
 
-  tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
-
-  if (!result)
-    return NULL;
-  while (count--) {
-    ins = strstr(orig, rep);
-    len_front = ins - orig;
-    tmp = strncpy(tmp, orig, len_front) + len_front;
-    tmp = strcpy(tmp, with) + len_with;
-    orig += len_front + len_rep;
-  }
-  strcpy(tmp, orig);
-  return result;
-}
-// write() wrapper
-void cprint(char *string) { write(1, string, strlen(string)); }
-// shell config
 typedef struct shellConf {
   char aliases[255][255];
   char meanings[255][255];
   char PISS[255];
   char paths[255][255];
 } shellConf;
-// print a list of strings, for debug purposes only right now.
-void print_strlist(char **array) {
-  for (int i = 0; array[i] != NULL; i++) {
-    printf("%s\n", array[i]);
-  }
-}
-// tokenize and extract the arguments from a single command, better be called
-// after get_exec_order
+
 char **extract_args(char *command, shellConf config, int *argc) {
   int raw_c = 1;
   int command_len = strlen(command);
@@ -95,6 +54,8 @@ char **extract_args(char *command, shellConf config, int *argc) {
     }
   }
   char **args = malloc((raw_c + 1) * sizeof(char *));
+  if (!args)
+    return NULL;
   {
     int arg_index = 0;
     int i = 0;
@@ -116,14 +77,18 @@ char **extract_args(char *command, shellConf config, int *argc) {
         while (i < command_len && command[i] != ' ') {
           if (command[i] == '~') {
             i++;
-            char *username = getlogin();
-            char homepath[256];
-            snprintf(homepath, sizeof(homepath), "/home/%s", username);
-            for (int p = 0; p < (int)strlen(homepath); p++) {
-              cur_arg[cur_len++] = homepath[p];
+            char *username = getenv("HOME");
+            if (username) {
+              for (int p = 0; p < (int)strlen(username) && cur_len < 255; p++) {
+                cur_arg[cur_len++] = username[p];
+              }
             }
+          } else {
+            if (cur_len < 255)
+              cur_arg[cur_len++] = command[i++];
+            else
+              i++;
           }
-          cur_arg[cur_len++] = command[i++];
         }
       }
       cur_arg[cur_len] = '\0';
@@ -131,7 +96,9 @@ char **extract_args(char *command, shellConf config, int *argc) {
     }
     args[arg_index] = NULL;
   }
-  char **aliased = malloc((raw_c * 16 + 1) * sizeof(char *));
+  char **aliased = malloc((raw_c * 16 + 2) * sizeof(char *));
+  if (!aliased)
+    return NULL;
   {
     int arg_index = 0;
     int i = 0;
@@ -153,15 +120,16 @@ char **extract_args(char *command, shellConf config, int *argc) {
       while (k < cur_len_total) {
         char cur_arg[256];
         int cur_len = 0;
-        while (k < cur_len_total && cur[k] == ' ') {
+        while (k < cur_len_total && cur[k] == ' ')
           k++;
-        }
         if (k >= cur_len_total)
           break;
         if (cur[k] == '"') {
           k++;
           while (k < cur_len_total && cur[k] != '"') {
-            cur_arg[cur_len++] = cur[k++];
+            if (cur_len < 255)
+              cur_arg[cur_len++] = cur[k];
+            k++;
           }
           if (k < cur_len_total)
             k++;
@@ -169,14 +137,19 @@ char **extract_args(char *command, shellConf config, int *argc) {
           while (k < cur_len_total && cur[k] != ' ') {
             if (cur[k] == '~') {
               k++;
-              char *username = getlogin();
-              char homepath[256];
-              snprintf(homepath, sizeof(homepath), "/home/%s", username);
-              for (int p = 0; p < (int)strlen(homepath); p++) {
-                cur_arg[cur_len++] = homepath[p];
+              char *homedir = getenv("HOME");
+              if (homedir) {
+                for (int p = 0; p < (int)strlen(homedir) && cur_len < 255;
+                     p++) {
+                  cur_arg[cur_len++] = homedir[p];
+                }
               }
+            } else {
+              if (cur_len < 255)
+                cur_arg[cur_len++] = cur[k++];
+              else
+                k++;
             }
-            cur_arg[cur_len++] = cur[k++];
           }
         }
         cur_arg[cur_len] = '\0';
@@ -189,10 +162,12 @@ char **extract_args(char *command, shellConf config, int *argc) {
     return aliased;
   }
 }
-// get the execution order and types of command execution
+
 exec_batch *get_exec_order(char *raw) {
   int len = strlen(raw);
   char *cur_command = malloc(256);
+  if (!cur_command)
+    return NULL;
   int cur_len = 0;
   int del_amount = 0;
   for (int i = 0; i < len; i++) {
@@ -201,21 +176,20 @@ exec_batch *get_exec_order(char *raw) {
       del_amount++;
     }
   }
-  exec_batch *order = malloc(sizeof(exec_batch) * (del_amount + 1));
+  exec_batch *order = malloc(sizeof(exec_batch) * (del_amount + 2));
+  if (!order)
+    return NULL;
+  memset(order, 0, sizeof(exec_batch) * (del_amount + 2));
   int i = 0;
   int quoted = 0;
   int index = 0;
   while (raw[i] != '\0') {
     if (raw[i] == '"') {
-      if (quoted == 1)
-        quoted = 0;
-      else if (quoted == 0)
-        quoted = 1;
+      quoted = !quoted;
     }
     if ((raw[i] == ';' || raw[i] == '|' || raw[i] == '&' || raw[i] == '>' ||
          raw[i] == '^' || raw[i] == '@' || raw[i] == ':') &&
         quoted == 0) {
-
       if (cur_len > 0) {
         cur_command[cur_len] = '\0';
         cur_len = 0;
@@ -249,10 +223,11 @@ exec_batch *get_exec_order(char *raw) {
         i++;
         index++;
       }
-
     } else {
-      cur_command[cur_len] = raw[i];
-      cur_len++;
+      if (cur_len < 255) {
+        cur_command[cur_len] = raw[i];
+        cur_len++;
+      }
     }
     i++;
   }
@@ -260,76 +235,104 @@ exec_batch *get_exec_order(char *raw) {
     cur_command[cur_len] = '\0';
     order[index].command = strdup(cur_command);
     order[index].type = normal;
+    index++;
   }
+  order[index].command = NULL;
   free(cur_command);
   return order;
 }
-// format the shell prompt with all the escape characters
+
 char *formatPISS(shellConf config) {
   int normal_len = strlen(config.PISS);
-  char *prompt = malloc(normal_len * 2);
+  char *prompt = malloc(1024);
+  if (!prompt)
+    return NULL;
   char *PISS = config.PISS;
   int cur_char_i = 0;
   for (int i = 0; i < normal_len; i++) {
     if (PISS[i] != '%') {
-      prompt[cur_char_i] = PISS[i];
-      cur_char_i++;
+      if (cur_char_i < 1023)
+        prompt[cur_char_i++] = PISS[i];
     } else {
       char escape_ident = PISS[i + 1];
       i += 1;
-      char *insert_str;
+      char *insert_str = "";
+      char cwd_buf[256];
+      char host_buf[256];
       switch (escape_ident) {
       case 'n':
         insert_str = "\n";
         break;
       case 'u':
         insert_str = getenv("USER");
+        if (!insert_str)
+          insert_str = "root";
         break;
-      case 'p':
-        char *homedir=getenv("HOME");
-        char *cwd=malloc(256);
-        insert_str = str_replace(getcwd(cwd, 256), homedir, "~");
+      case 'p': {
+        char *homedir = getenv("HOME");
+        char *cwd = getcwd(cwd_buf, sizeof(cwd_buf));
+        if (!cwd)
+          cwd = "/";
+        if (homedir) {
+          char *replaced = str_replace(cwd, homedir, "~");
+          insert_str = replaced ? replaced : cwd;
+        } else {
+          insert_str = cwd;
+        }
         break;
+      }
       case 'P':
-        insert_str = getcwd(NULL, 0);
+        insert_str = getcwd(cwd_buf, sizeof(cwd_buf));
+        if (!insert_str)
+          insert_str = "/";
         break;
       case 'h':
-        insert_str = malloc(256);
-        gethostname(insert_str, 256);
+        if (gethostname(host_buf, sizeof(host_buf)) == 0)
+          insert_str = host_buf;
+        else
+          insert_str = "localhost";
         break;
       default:
         insert_str = "";
         break;
       }
       int insert_len = strlen(insert_str);
-      for (int k = 0; k < insert_len; k++) {
-        prompt[cur_char_i] = insert_str[k];
-        cur_char_i++;
+      for (int k = 0; k < insert_len && cur_char_i < 1023; k++) {
+        prompt[cur_char_i++] = insert_str[k];
       }
     }
   }
   prompt[cur_char_i] = '\0';
   return prompt;
 }
-// execute the command/file
+
 int execute(char mode, char *execd, shellConf config) {
   switch (mode) {
-  case 'c':
-
+  case 'c': {
     extern char **environ;
     exec_batch *order = get_exec_order(execd);
+    if (!order)
+      return EXIT_FAILURE;
     int i = 0;
     while (order[i].command != NULL) {
-      int argc;
+      int argc = 0;
       char **args = extract_args(order[i].command, config, &argc);
+      if (!args || !args[0] || args[0][0] == '\0') {
+        i++;
+        continue;
+      }
       if (strcmp(args[0], "cd") == 0) {
         const char *dir = (argc > 1) ? args[1] : getenv("HOME");
+        if (!dir)
+          dir = "/";
         if (chdir(dir) != 0)
-          perror("not a directory");
-        return EXIT_SUCCESS;
+          perror("cd");
+        i++;
+        continue;
       } else if (strcmp(args[0], "clear") == 0) {
         cprint("\e[1;1H\e[2J");
-        return EXIT_SUCCESS;
+        i++;
+        continue;
       } else if (strcmp(args[0], "exit") == 0) {
         exit(0);
       } else if (strcmp(args[0], "export") == 0 && argc > 1) {
@@ -338,56 +341,53 @@ int execute(char mode, char *execd, shellConf config) {
           *eq = '\0';
           setenv(args[1], eq + 1, 1);
         }
-        return EXIT_SUCCESS;
+        i++;
+        continue;
       }
       pid_t forked = fork();
       int status;
       if (forked == 0) {
-        // child;
         if (strchr(args[0], '/')) {
           execve(args[0], args, environ);
           exit(1);
         } else {
-          // no path command.
           int k = 0;
           while (config.paths[k][0] != '\0') {
-            char *full_path =
-                malloc(sizeof(order[i].command) + strlen(config.paths[k]) + 4);
-            snprintf(full_path,
-                     sizeof(order[i].command) + strlen(config.paths[k]) + 4,
-                     "%s/%s", config.paths[k], args[0]);
+            char full_path[512];
+            snprintf(full_path, sizeof(full_path), "%s/%s", config.paths[k],
+                     args[0]);
             execve(full_path, args, environ);
             k++;
           }
-          exit(0);
+          exit(127);
         }
       } else if (forked == -1) {
-        cprint("FORK NOT FOUND IN KITCHEN\n");
+        cprint("fork failed\n");
       } else {
-        // parent
         if (waitpid(forked, &status, 0) == -1) {
-          cprint("pid wait error\n");
-          exit(EXIT_FAILURE);
+          cprint("waitpid error\n");
         }
       }
       i++;
     }
     break;
+  }
   case 'f':
     break;
   default:
-    cprint("invalid mode");
+    cprint("invalid mode\n");
     return EXIT_FAILURE;
-    break;
   }
   return EXIT_SUCCESS;
 }
+
 shellConf getConf(FILE *rc) {
   char line[1024];
   char loaded[90][1024];
   int ammount = 0;
-  shellConf config = {0};
-  while (fgets(line, sizeof(line), rc) != NULL) {
+  shellConf config;
+  memset(&config, 0, sizeof(shellConf));
+  while (fgets(line, sizeof(line), rc) != NULL && ammount < 90) {
     strcpy(loaded[ammount], line);
     ammount++;
   }
@@ -397,101 +397,127 @@ shellConf getConf(FILE *rc) {
       char values[50][255];
       int valueCount = 0;
       loaded[i][strcspn(loaded[i], "\n")] = 0;
-      strcpy(keyword, loaded[i]);
-      for (int j = i + 1; j < ammount; j++) {
+      strncpy(keyword, loaded[i], sizeof(keyword) - 1);
+      keyword[sizeof(keyword) - 1] = '\0';
+      for (int j = i + 1; j < ammount && valueCount < 50; j++) {
         if (loaded[j][0] == '@') {
-          strcpy(values[valueCount], loaded[j]);
+          strncpy(values[valueCount], loaded[j], 254);
+          values[valueCount][254] = '\0';
           valueCount++;
         } else if (loaded[j][0] == '!') {
           break;
         }
       }
       if (strcmp(keyword, "!PISS") == 0) {
-        char *format = values[0] + 1;
-        format[strcspn(format, "\n")] = 0;
-        strcpy(config.PISS, format);
+        if (valueCount > 0) {
+          char *format = values[0] + 1;
+          format[strcspn(format, "\n")] = 0;
+          strncpy(config.PISS, format, 254);
+        }
       } else if (strcmp(keyword, "!ALIAS") == 0) {
-        for (int i = 0; i < valueCount; i++) {
-          char *format = values[i] + 1;
+        for (int j = 0; j < valueCount; j++) {
+          char *format = values[j] + 1;
           format[strcspn(format, "\n")] = 0;
           char *eq = strchr(format, '=');
           if (!eq)
             continue;
           *eq = '\0';
-          strcpy(config.aliases[i], format);
-          strcpy(config.meanings[i], eq + 1);
+          strncpy(config.aliases[j], format, 254);
+          strncpy(config.meanings[j], eq + 1, 254);
         }
       } else if (strcmp(keyword, "!PATH") == 0) {
-        for (int i = 0; i < valueCount; i++) {
-          char *format = values[i] + 1;
+        for (int j = 0; j < valueCount; j++) {
+          char *format = values[j] + 1;
           format[strcspn(format, "\n")] = 0;
-          strcpy(config.paths[i], format);
+          strncpy(config.paths[j], format, 254);
         }
       }
     }
   }
   return config;
 }
-// main shell loop
+
 void loop(shellConf config) {
+  enable_term_rawmode();
   char *piss = formatPISS(config);
   cprint(piss);
-  char cur_c;
+  free(piss);
   char *command = malloc(256);
+  int buf_size = 256;
+  if (!command)
+    return;
   int index = 0;
+  char cur_c;
   while (read(STDIN_FILENO, &cur_c, 1) == 1) {
-    if (cur_c != '\n') {
-      switch (cur_c) {
-      default:
-        command = realloc(command, 3 + index);
-        command[index] = cur_c;
-        index++;
-        break;
-      }
-
-    } else {
+    if (cur_c == '\n' || cur_c == '\r') {
+      cprint("\n");
       command[index] = '\0';
       index = 0;
-      execute('c', command, config);
+      if (command[0] != '\0')
+        execute('c', command, config);
       piss = formatPISS(config);
       cprint(piss);
+      free(piss);
+    } else if (cur_c == 127 || cur_c == '\b') {
+      if (index > 0) {
+        index--;
+        cprint("\b \b");
+      }
+    } else if (cur_c == 3) {
+      cprint("^C\n");
+      index = 0;
+      piss = formatPISS(config);
+      cprint(piss);
+      free(piss);
+    } else {
+      if (index >= buf_size - 1) {
+        buf_size *= 2;
+        command = realloc(command, buf_size);
+        if (!command)
+          return;
+      }
+      command[index++] = cur_c;
+      write(1, &cur_c, 1);
     }
   }
+  free(command);
 }
-// entrypoint
+
 int main(int argc, char **argv) {
   FILE *rcfile;
+  shellConf conf;
+  memset(&conf, 0, sizeof(shellConf));
 
   rcfile = fopen("/etc/.ballrc", "r");
-
-  shellConf conf;
   if (rcfile == NULL) {
-    rcfile = fopen(".ballrc", "w");
-    fprintf(rcfile,
-            "The ball shell configuration file.\n  You should put a newline "
-            "without any spaces after if you want to declare a keyword or a "
-            "meaning or a startup commands(must be put last).\n  Keyword start "
-            "with !, values start with @, startup commands start with $.\n  "
-            "string modifiers for PISS: %%n - newline %%u - user %%h - "
-            "hostname %%p - current path %%P - current full path\n  Colors - "
-            "use ascii color codes "
-            "\n\n \n!PISS\n@%%u@%%h  %%p %%n#   "
-            "\n!ALIAS\n\n!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/"
-            "usr/sbin\n");
-    fclose(rcfile);
-    rcfile = fopen(".ballrc", "r");
+    rcfile = fopen("/.ballrc", "w");
+    if (rcfile != NULL) {
+      fprintf(rcfile,
+              "The ball shell configuration file.\n"
+              "!PISS\n@%%u@%%h  %%p %%n#   \n"
+              "!ALIAS\n\n"
+              "!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
+      fclose(rcfile);
+      rcfile = fopen("/.ballrc", "r");
+    }
+  }
+
+  if (rcfile != NULL) {
     conf = getConf(rcfile);
     fclose(rcfile);
   } else {
-    conf = getConf(rcfile);
-    fclose(rcfile);
+    strncpy(conf.PISS, "# ", 254);
+    strncpy(conf.paths[0], "/bin", 254);
+    strncpy(conf.paths[1], "/usr/bin", 254);
+    strncpy(conf.paths[2], "/sbin", 254);
   }
+
   if (argc > 1) {
-    // execute files
-    for (int i = 1; i < argc - 1; i++) {
-      execute('f', argv[argc], conf);
+    for (int i = 1; i < argc; i++) {
+      execute('f', argv[i], conf);
     }
   } else {
     loop(conf);
   }
+  return 0;
 }

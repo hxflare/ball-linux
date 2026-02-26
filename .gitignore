@@ -13,3 +13,4 @@ ball_old.c
 coreutils/compileall.sh
 building/
 etc/
+init
