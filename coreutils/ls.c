@@ -131,5 +131,6 @@ int main(int argc, char **argv) {
     }
   }
   closedir(dir);
+  cprint("\033[0m");
   return EXIT_SUCCESS;
 }
