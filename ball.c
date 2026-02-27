@@ -488,9 +488,12 @@ int main(int argc, char **argv) {
   shellConf conf;
   memset(&conf, 0, sizeof(shellConf));
 
-  rcfile = fopen("/etc/.ballrc", "r");
+  rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "r");
   if (rcfile == NULL) {
-    rcfile = fopen("/.ballrc", "w");
+    rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "w");
+    if (rcfile==NULL){
+      rcfile = fopen( "/etc/.ballrc", "w");
+    }
     if (rcfile != NULL) {
       fprintf(rcfile,
               "The ball shell configuration file.\n"
@@ -506,7 +509,7 @@ int main(int argc, char **argv) {
     conf = getConf(rcfile);
     fclose(rcfile);
   } else {
-    strncpy(conf.PISS, "# ", 254);
+    strncpy(conf.PISS, "@%%u@%%h  %%p %%n#  ", 254);
     strncpy(conf.paths[0], "/bin", 254);
     strncpy(conf.paths[1], "/usr/bin", 254);
     strncpy(conf.paths[2], "/sbin", 254);

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-void cprint(char *string) {
+void cprint(const char *string) {
   if (!string) return;
   write(1, string, strlen(string));
 }
@@ -53,14 +53,14 @@ char *concat(const char *s1, const char *s2) {
   return result;
 }
 
-void print_strlist(char **array) {
+void print_strlist(const char **array) {
   if (!array) return;
   for (int i = 0; array[i] != NULL; i++) {
     cprint(array[i]);
   }
 }
 
-int str_isdigit(char *str) {
+int str_isdigit(const char *str) {
   if (!str || strlen(str) == 0) return 0;
   for (int i = 0; i < (int)strlen(str); i++) {
     if (isdigit((unsigned char)str[i]) == 0) {
