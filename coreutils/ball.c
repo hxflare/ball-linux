@@ -1,4 +1,4 @@
-#include "btools.h"
+#include "../btools.h"
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -491,9 +491,6 @@ int main(int argc, char **argv) {
   rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "r");
   if (rcfile == NULL) {
     rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "w");
-    if (rcfile==NULL){
-      rcfile = fopen( "/etc/.ballrc", "w");
-    }
     if (rcfile != NULL) {
       fprintf(rcfile,
               "The ball shell configuration file.\n"
@@ -501,7 +498,7 @@ int main(int argc, char **argv) {
               "!ALIAS\n\n"
               "!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
       fclose(rcfile);
-      rcfile = fopen("/.ballrc", "r");
+      rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "r");
     }
   }
 

@@ -1,7 +1,10 @@
-gcc -o  cat  cat.c ../btools.c --static
-gcc -o  l  ls.c ../btools.c --static
-gcc -o  clear  clear.c ../btools.c --static
-gcc -o  touch  touch.c ../btools.c --static
-gcc -o  tree  tree.c ../btools.c --static
-gcc -o  ../ball  ../ball.c ../btools.c --static
-gcc -o ../init ../init.c ../btools.c --static
+#!/bin/bash
+DIR="${1:-.}"
+for file in "$DIR"/*.c; do
+    [ -f "$file" ] || { echo "No .c files found in $DIR"; exit 1; }
+    name="${file%.c}"
+    echo "Compiling $file -> $name"
+    gcc -Wall -Wextra -static -o "$name" "$file" ../btools.c || echo "Compilation failed : $file"
+done
+
+echo "compiled"
