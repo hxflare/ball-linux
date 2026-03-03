@@ -22,9 +22,14 @@ typedef struct {
 } Service;
 Service parse_service(char *service_name) {
   Service service;
+  memset(&service, 0, sizeof(Service));
   strncpy(service.name, service_name, 64);
   char *path = concat("/etc/initsys.d/", service_name);
   FILE *rc = fopen(path, "r");
+  if (rc == NULL) {
+    cprint("Failed to open service file\n");
+    return service;
+  }
   char fline[1024];
   char lines[1024][1024];
   int amm = 0;
@@ -33,12 +38,14 @@ Service parse_service(char *service_name) {
     lines[amm][strcspn(lines[amm], "\n")] = 0;
     amm++;
   }
+  fclose(rc);
   int cur_line = 0;
   while (cur_line < amm) {
     if (lines[cur_line][0] == '!') {
       if (strcmp(lines[cur_line] + 1, "after") == 0) {
         int count = 0;
-        while (lines[cur_line][0] != '!') {
+        cur_line++;
+        while (cur_line < amm && lines[cur_line][0] != '!') {
           if (lines[cur_line][0] == '@') {
             strncpy(service.after[count], lines[cur_line] + 1, 64);
             count++;
@@ -48,28 +55,40 @@ Service parse_service(char *service_name) {
         service.after_count = count;
       } else if (strcmp(lines[cur_line] + 1, "before") == 0) {
         int count = 0;
-        while (lines[cur_line][0] != '!') {
+        cur_line++;
+        while (cur_line < amm && lines[cur_line][0] != '!') {
           if (lines[cur_line][0] == '@') {
             strncpy(service.before[count], lines[cur_line] + 1, 64);
+            count++;
           }
-          count++;
           cur_line++;
         }
         service.before_count = count;
       } else if (strcmp(lines[cur_line] + 1, "type") == 0) {
-        while (lines[cur_line][0] != '!') {
+        cur_line++;
+        while (cur_line < amm && lines[cur_line][0] != '!') {
           if (lines[cur_line][0] == '@') {
             strncpy(service.type, lines[cur_line] + 1, 32);
-
+            cur_line++;
             break;
           }
           cur_line++;
         }
       } else if (strcmp(lines[cur_line] + 1, "functional") == 0) {
-        while (cur_line < amm) {
+        cur_line++;
+        while (cur_line < amm && lines[cur_line][0] != '!') {
+          if (lines[cur_line][0] == '@') {
+            strncpy(service.functional, lines[cur_line] + 1, 256);
+            cur_line++;
+            break;
+          }
           cur_line++;
         }
+      } else {
+        cur_line++;
       }
+    } else {
+      cur_line++;
     }
   }
   return service;
@@ -117,14 +136,17 @@ int main(int argc, char **argv) {
     char *name = entry->d_name;
     unsigned char type = entry->d_type;
     if (type == DT_REG) {
+      cprint("service found: ");
+      cprint(name);
+      cprint("\n");
       service_root[ammount] = parse_service(name);
       print_service(service_root[ammount]);
-    } else {
+      ammount++;
+      service_root = realloc(service_root, sizeof(Service) * (ammount + 1));
+    } else if (name[0] != '.') {
       cprint("Only regular files are parsed as services. ");
       cprint(name);
       cprint(" is not a service.\n");
     }
-    ammount++;
-    service_root = realloc(service_root, sizeof(Service) * (ammount + 1));
   }
 }

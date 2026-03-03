@@ -1,4 +1,5 @@
 echo "Compiling the coreutils..."
+rm -f isoroot/boot/initrd.img
 cd ../coreutils
 ./compileall.sh
 cd ../building
