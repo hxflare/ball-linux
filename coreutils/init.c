@@ -22,7 +22,7 @@ int main(void) {
                   "TERM=linux", "USER=root", NULL};
   pid_t forked = fork();
   if (forked == 0) {
-    execve("/bin/ball", argv, envp);
+    execve("/bin/initsys", argv, envp);
     cprint("shi.... execve failed");
   } else if (forked == -1) {
     cprint("fork failed in init\n");

@@ -4,20 +4,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
-typedef enum {
-  shell = 0,
-  execute = 1,
-  print = 3,
-  wait = 4,
-} ServiceType;
 typedef struct {
   char name[64];
   char after[16][64];
   int after_count;
   char before[16][64];
   int before_count;
-  char functional[256];
+  char functional[256][256];
   char type[32];
 } Service;
 Service parse_service(char *service_name) {
@@ -76,14 +72,13 @@ Service parse_service(char *service_name) {
         }
       } else if (strcmp(lines[cur_line] + 1, "functional") == 0) {
         cur_line++;
+        int count = 0;
         while (cur_line < amm && lines[cur_line][0] != '!') {
-          if (lines[cur_line][0] == '@') {
-            strncpy(service.functional, lines[cur_line] + 1, 256);
-            cur_line++;
-            break;
-          }
+          strncpy(service.functional[count], lines[cur_line], 256);
+          count++;
           cur_line++;
         }
+
       } else {
         cur_line++;
       }
@@ -101,7 +96,12 @@ void print_service(Service service) {
   cprint(service.type);
   cprint("\n");
   cprint("functional: ");
-  cprint(service.functional);
+  int i = 0;
+  while (service.functional[i][0] != '\0') {
+    cprint(service.functional[i]);
+    cprint("\n");
+    i++;
+  }
   cprint("\n");
   cprint("after: ");
   for (int i = 0; i < service.after_count; i++) {
@@ -113,12 +113,42 @@ void print_service(Service service) {
   cprint("before: ");
   for (int i = 0; i < service.before_count; i++) {
     cprint(service.before[i]);
-    if (i < service.before_count - 1)
+    if (i < service.before_count - 1) {
       cprint(", ");
+    }
   }
+
   cprint("\n");
 }
-void execute_service(Service service) {}
+void execute_service(Service service) {
+  if (strcmp(service.type, "execute") == 0) {
+    pid_t fork_pid;
+    extern char **environ;
+    int i = 0;
+    while (service.functional[i][0] != '\0') {
+      fork_pid = fork();
+
+      if (fork_pid == 0) {
+        char *args[] = {service.functional[i], NULL};
+        execve(service.functional[i], args, environ);
+        perror("execve failed");
+        exit(EXIT_FAILURE);
+      } else if (fork_pid == -1) {
+        cprint("fork failed\n");
+      } else {
+        int status;
+        waitpid(fork_pid, &status, 0);
+      }
+      i++;
+    }
+  } else if (strcmp(service.type, "write")==0) {
+    int i = 0;
+    while (service.functional[i][0] != '\0') {
+      cprint(service.functional[i]);
+      i++;
+    }
+  }
+}
 int main(int argc, char **argv) {
   cprint("initsys starting. getting services\n");
   Service *service_root;
@@ -130,8 +160,8 @@ int main(int argc, char **argv) {
     cprint("Unable to open /etc/initsys.d\n");
     exit(EXIT_FAILURE);
   }
-  int ammount = 0;
-  service_root = malloc(sizeof(Service) * (ammount + 1));
+  int amount = 0;
+  service_root = malloc(sizeof(Service) * (amount + 1));
   while ((entry = readdir(initsys_dir)) != NULL) {
     char *name = entry->d_name;
     unsigned char type = entry->d_type;
@@ -139,10 +169,10 @@ int main(int argc, char **argv) {
       cprint("service found: ");
       cprint(name);
       cprint("\n");
-      service_root[ammount] = parse_service(name);
-      print_service(service_root[ammount]);
-      ammount++;
-      service_root = realloc(service_root, sizeof(Service) * (ammount + 1));
+      service_root[amount] = parse_service(name);
+      execute_service(service_root[amount]);
+      amount++;
+      service_root = realloc(service_root, sizeof(Service) * (amount + 1));
     } else if (name[0] != '.') {
       cprint("Only regular files are parsed as services. ");
       cprint(name);
