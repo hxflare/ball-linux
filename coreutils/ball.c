@@ -494,8 +494,8 @@ int main(int argc, char **argv) {
     if (rcfile != NULL) {
       fprintf(rcfile,
               "The ball shell configuration file.\n"
-              "!PISS\n@%%u@%%h  %%p %%n#   \n"
-              "!ALIAS\n\n"
+              "!PISS\n@%%u@%%h ball-shell %%p %%n#   \n"
+              "!ALIAS\n@ls=l -cthi\n"
               "!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
       fclose(rcfile);
       rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "r");
@@ -513,9 +513,38 @@ int main(int argc, char **argv) {
   }
 
   if (argc > 1) {
-    for (int i = 1; i < argc; i++) {
-      execute('f', argv[i], conf);
+    if (argv[1][0] == '-' && argv[1][1] == 'c') {
+      char *arg = calloc(1, 1);
+      for (int i = 2; i < argc; i++) {
+        arg = concat(arg, argv[i]);
+      }
+      char *command = malloc(sizeof(arg));
+      int quoted = 0;
+      int c_index = 0;
+      for (int i = 0; i < strlen(arg); i++) {
+        if (arg[i] == '"') {
+          quoted = !quoted;
+        } else if(arg[i]!=' '||quoted){
+          if (arg[i] != ' ') {
+            command[c_index] = arg[i];
+            c_index++;
+          } else {
+            c_index++;
+            break;
+          }
+        }else {
+          break;
+        }
+      }
+      command[c_index] = '\0';
+      execute('c', command, conf);
+      free(command);
+    } else {
+      for (int i = 1; i < argc; i++) {
+        execute('f', argv[i], conf);
+      }
     }
+
   } else {
     loop(conf);
   }

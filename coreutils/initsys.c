@@ -120,17 +120,17 @@ void print_service(Service service) {
 
   cprint("\n");
 }
-void execute_service(Service service) {
-  if (strcmp(service.type, "execute") == 0) {
+void execute_service(Service *service) {
+  if (strcmp(service->type, "execute") == 0) {
     pid_t fork_pid;
     extern char **environ;
     int i = 0;
-    while (service.functional[i][0] != '\0') {
+    while (service->functional[i][0] != '\0') {
       fork_pid = fork();
 
       if (fork_pid == 0) {
-        char *args[] = {service.functional[i], NULL};
-        execve(service.functional[i], args, environ);
+        char *args[] = {service->functional[i], NULL};
+        execve(service->functional[i], args, environ);
         perror("execve failed");
         exit(EXIT_FAILURE);
       } else if (fork_pid == -1) {
@@ -141,10 +141,31 @@ void execute_service(Service service) {
       }
       i++;
     }
-  } else if (strcmp(service.type, "write")==0) {
+  } else if (strcmp(service->type, "write")==0) {
     int i = 0;
-    while (service.functional[i][0] != '\0') {
-      cprint(service.functional[i]);
+    while (service->functional[i][0] != '\0') {
+      cprint(service->functional[i]);
+      i++;
+    }
+  }else if(strcmp(service->type, "command")==0){
+    pid_t fork_pid;
+    extern char **environ;
+    int i = 0;
+    while (service->functional[i][0] != '\0') {
+      fork_pid = fork();
+
+      if (fork_pid == 0) {
+        char *func=concat(concat("\"", service->functional[i]),"\"");
+        char *args[] = {"ball","-c",func, NULL};
+        execve(service->functional[i], args, environ);
+        perror("execve failed");
+        exit(EXIT_FAILURE);
+      } else if (fork_pid == -1) {
+        cprint("fork failed\n");
+      } else {
+        int status;
+        waitpid(fork_pid, &status, 0);
+      }
       i++;
     }
   }
@@ -170,7 +191,7 @@ int main(int argc, char **argv) {
       cprint(name);
       cprint("\n");
       service_root[amount] = parse_service(name);
-      execute_service(service_root[amount]);
+      execute_service(&service_root[amount]);
       amount++;
       service_root = realloc(service_root, sizeof(Service) * (amount + 1));
     } else if (name[0] != '.') {
