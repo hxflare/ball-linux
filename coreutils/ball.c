@@ -434,6 +434,11 @@ shellConf getConf(FILE *rc) {
       }
     }
   }
+  for(int i=0;i<ammount;i++){
+    if (loaded[i][0]=='$'){
+      execute('c', loaded[i]+1,config);
+    }
+  }
   return config;
 }
 
@@ -456,6 +461,7 @@ void loop(shellConf config) {
       if (command[0] != '\0')
         execute('c', command, config);
       piss = formatPISS(config);
+      cprint("\n");
       cprint(piss);
       free(piss);
     } else if (cur_c == 127 || cur_c == '\b') {
@@ -494,9 +500,12 @@ int main(int argc, char **argv) {
     if (rcfile != NULL) {
       fprintf(rcfile,
               "The ball shell configuration file.\n"
-              "!PISS\n@%%u@%%h ball-shell %%p %%n#   \n"
+              "!PISS\n@%%u@%%h  %%p %%n#   \n"
               "!ALIAS\n@ls=l -cthi\n"
-              "!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n");
+              "!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n"
+              "$echo \"Welcome to ball-linux!!!!\"\n"
+              "$echo \"\e[40m \e[41m \e[42m \e[43m \e[44m \e[45m \e[46m \e[47m \e[40m\"\n"
+            );
       fclose(rcfile);
       rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "r");
     }

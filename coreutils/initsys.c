@@ -156,8 +156,8 @@ void execute_service(Service *service) {
 
       if (fork_pid == 0) {
         char *func=concat(concat("\"", service->functional[i]),"\"");
-        char *args[] = {"ball","-c",func, NULL};
-        execve(service->functional[i], args, environ);
+        char *args[] = {"/bin/ball","-c",func, NULL};
+        execve("/bin/ball", args, environ);
         perror("execve failed");
         exit(EXIT_FAILURE);
       } else if (fork_pid == -1) {
@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
   while ((entry = readdir(initsys_dir)) != NULL) {
     char *name = entry->d_name;
     unsigned char type = entry->d_type;
-    if (type == DT_REG) {
+    if (type == DT_REG && name[0] != '.' ) {
       cprint("service found: ");
       cprint(name);
       cprint("\n");
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
       execute_service(&service_root[amount]);
       amount++;
       service_root = realloc(service_root, sizeof(Service) * (amount + 1));
-    } else if (name[0] != '.') {
+    } else{
       cprint("Only regular files are parsed as services. ");
       cprint(name);
       cprint(" is not a service.\n");
