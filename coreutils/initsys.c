@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 typedef struct {
   char name[64];
   char after[16][64];
@@ -16,6 +17,92 @@ typedef struct {
   char functional[256][256];
   char type[32];
 } Service;
+typedef struct {
+  int indegree;
+  int after_count;
+  int after[16];
+  int before_count;
+  int before[16];
+  char *name;
+} Node;
+Service *get_service_by_name(char *name, Service *service_array) {
+  int i = 0;
+  while (service_array[i].name[0] != '\0') {
+    if (strcmp(name, service_array[i].name) == 0) {
+      return &service_array[i];
+    }
+  }
+}
+int get_service_index_by_name(char *name, Service *service_array) {
+  int i = 0;
+  while (service_array[i].name[0] != '\0') {
+    if (strcmp(name, service_array[i].name) == 0) {
+      return i;
+    }
+  }
+}
+
+Node *get_node_by_name(char *name, Node *node_array) {
+  int i = 0;
+  while (node_array[i].name[0] != '\0') {
+    if (strcmp(name, node_array[i].name) == 0) {
+      return &node_array[i];
+    }
+  }
+}
+Node *nodeize(Service *services, int amount) {
+  Node *nodes = malloc(sizeof(Node) * (amount + 2));
+  for (int i = 0; i < amount; i++) {
+    nodes[amount].name = services[i].name;
+    nodes[amount].indegree = 0;
+    nodes[amount].before_count = 0;
+    nodes[amount].after_count = 0;
+  }
+  for (int i = 0; i < amount; i++) {
+    Node cur_node = nodes[i];
+    Service cur_service = services[i];
+    for (int k = 0; k < cur_service.before_count; k++) {
+      cur_node.before[k] =
+          get_service_index_by_name(cur_service.name, services);
+      Node *bind_node = get_node_by_name(cur_service.before[k], nodes);
+      bind_node->after[bind_node->after_count] = k;
+      bind_node->after_count++;
+    }
+    for (int k = 0; k < cur_service.after_count; k++) {
+      cur_node.after[k] = get_service_index_by_name(cur_service.name, services);
+      Node *bind_node = get_node_by_name(cur_service.after[k], nodes);
+      bind_node->before[bind_node->before_count] = k;
+      bind_node->before_count++;
+    }
+  }
+  return nodes;
+}
+int *topological_order(Service *services, int amount) {
+  Node *nodes = nodeize(services, amount);
+  int *order = malloc(sizeof(int) * amount);
+  for (int i = 0; i < amount; i++) {
+    nodes[i].indegree = nodes[i].after_count;
+  }
+  int array_index = 0;
+  int i = 0;
+  while (1) {
+    if (nodes[i].indegree == 0) {
+      order[array_index] = i;
+      array_index++;
+      for (int k = 0; k < nodes[i].before_count; k++) {
+        nodes[i].indegree--;
+      }
+    }
+    if (array_index==amount){
+      return order;
+    }
+    if (i >= amount) {
+      i = 0;
+    } else {
+      i++;
+    }
+  }
+}
 Service parse_service(char *service_name) {
   Service service;
   memset(&service, 0, sizeof(Service));
@@ -141,13 +228,13 @@ void execute_service(Service *service) {
       }
       i++;
     }
-  } else if (strcmp(service->type, "write")==0) {
+  } else if (strcmp(service->type, "write") == 0) {
     int i = 0;
     while (service->functional[i][0] != '\0') {
       cprint(service->functional[i]);
       i++;
     }
-  }else if(strcmp(service->type, "command")==0){
+  } else if (strcmp(service->type, "command") == 0) {
     pid_t fork_pid;
     extern char **environ;
     int i = 0;
@@ -155,8 +242,8 @@ void execute_service(Service *service) {
       fork_pid = fork();
 
       if (fork_pid == 0) {
-        char *func=concat(concat("\"", service->functional[i]),"\"");
-        char *args[] = {"/bin/ball","-c",func, NULL};
+        char *func = concat(concat("\"", service->functional[i]), "\"");
+        char *args[] = {"/bin/ball", "-c", func, NULL};
         execve("/bin/ball", args, environ);
         perror("execve failed");
         exit(EXIT_FAILURE);
@@ -186,18 +273,24 @@ int main(int argc, char **argv) {
   while ((entry = readdir(initsys_dir)) != NULL) {
     char *name = entry->d_name;
     unsigned char type = entry->d_type;
-    if (type == DT_REG && name[0] != '.' ) {
-      cprint("service found: ");
-      cprint(name);
-      cprint("\n");
-      service_root[amount] = parse_service(name);
-      execute_service(&service_root[amount]);
-      amount++;
-      service_root = realloc(service_root, sizeof(Service) * (amount + 1));
-    } else{
-      cprint("Only regular files are parsed as services. ");
-      cprint(name);
-      cprint(" is not a service.\n");
+    if (name[0] != '.') {
+      if (type == DT_REG) {
+        cprint("service found: ");
+        cprint(name);
+        cprint("\n");
+        service_root[amount] = parse_service(name);
+        amount++;
+        service_root = realloc(service_root, sizeof(Service) * (amount + 1));
+      } else {
+        cprint("Only regular files are parsed as services. ");
+        cprint(name);
+        cprint(" is not a service.\n");
+      }
     }
   }
+  int *order=topological_order(service_root, amount);
+  for (int i=0; i<amount; i++) {
+    execute_service(&service_root[order[i]]);
+  }
+  exit(EXIT_FAILURE);
 }

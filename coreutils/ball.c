@@ -381,7 +381,7 @@ int execute(char mode, char *execd, shellConf config) {
   return EXIT_SUCCESS;
 }
 
-shellConf getConf(FILE *rc) {
+shellConf getConf(FILE *rc, int execute_commands) {
   char line[1024];
   char loaded[90][1024];
   int ammount = 0;
@@ -434,9 +434,11 @@ shellConf getConf(FILE *rc) {
       }
     }
   }
-  for(int i=0;i<ammount;i++){
-    if (loaded[i][0]=='$'){
-      execute('c', loaded[i]+1,config);
+  if (execute_commands) {
+    for (int i = 0; i < ammount; i++) {
+      if (loaded[i][0] == '$') {
+        execute('c', loaded[i] + 1, config);
+      }
     }
   }
   return config;
@@ -504,15 +506,19 @@ int main(int argc, char **argv) {
               "!ALIAS\n@ls=l -cthi\n"
               "!PATH\n@/bin\n@/usr/bin\n@/usr/local/bin\n@/sbin\n@/usr/sbin\n"
               "$echo \"Welcome to ball-linux!!!!\"\n"
-              "$echo \"\e[40m \e[41m \e[42m \e[43m \e[44m \e[45m \e[46m \e[47m \e[40m\"\n"
-            );
+              "$echo \"\e[40m \e[41m \e[42m \e[43m \e[44m \e[45m \e[46m \e[47m "
+              "\e[40m\"\n");
       fclose(rcfile);
       rcfile = fopen(concat(getenv("HOME"), "/.ballrc"), "r");
     }
   }
 
   if (rcfile != NULL) {
-    conf = getConf(rcfile);
+    if (argc > 1) {
+      conf = getConf(rcfile, 0);
+    } else {
+      conf = getConf(rcfile,1);
+    }
     fclose(rcfile);
   } else {
     strncpy(conf.PISS, "@%%u@%%h  %%p %%n#  ", 254);
@@ -533,7 +539,7 @@ int main(int argc, char **argv) {
       for (int i = 0; i < strlen(arg); i++) {
         if (arg[i] == '"') {
           quoted = !quoted;
-        } else if(arg[i]!=' '||quoted){
+        } else if (arg[i] != ' ' || quoted) {
           if (arg[i] != ' ') {
             command[c_index] = arg[i];
             c_index++;
@@ -541,7 +547,7 @@ int main(int argc, char **argv) {
             c_index++;
             break;
           }
-        }else {
+        } else {
           break;
         }
       }
