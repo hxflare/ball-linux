@@ -17,91 +17,109 @@ typedef struct {
   char functional[256][256];
   char type[32];
 } Service;
+
 typedef struct {
   int indegree;
+  int visited;
   int after_count;
   int after[16];
   int before_count;
   int before[16];
   char *name;
 } Node;
+
 Service *get_service_by_name(char *name, Service *service_array) {
   int i = 0;
   while (service_array[i].name[0] != '\0') {
     if (strcmp(name, service_array[i].name) == 0) {
       return &service_array[i];
     }
+    i++;
   }
+  return NULL;
 }
+
 int get_service_index_by_name(char *name, Service *service_array) {
   int i = 0;
   while (service_array[i].name[0] != '\0') {
     if (strcmp(name, service_array[i].name) == 0) {
       return i;
     }
+    i++;
   }
+  return -1;
 }
 
-Node *get_node_by_name(char *name, Node *node_array) {
-  int i = 0;
-  while (node_array[i].name[0] != '\0') {
-    if (strcmp(name, node_array[i].name) == 0) {
-      return &node_array[i];
+Node *get_node_by_name(char *name, Node *nodes, int amount) {
+  for (int i = 0; i < amount; i++) {
+    if (strcmp(name, nodes[i].name) == 0) {
+      return &nodes[i];
     }
   }
+  return NULL;
 }
+
 Node *nodeize(Service *services, int amount) {
-  Node *nodes = malloc(sizeof(Node) * (amount + 2));
+  Node *nodes = malloc(sizeof(Node) * amount);
   for (int i = 0; i < amount; i++) {
-    nodes[amount].name = services[i].name;
-    nodes[amount].indegree = 0;
-    nodes[amount].before_count = 0;
-    nodes[amount].after_count = 0;
+    nodes[i].name = strdup(services[i].name);
+    nodes[i].indegree = 0;
+    nodes[i].before_count = 0;
+    nodes[i].after_count = 0;
+    nodes[i].visited = 0;
   }
   for (int i = 0; i < amount; i++) {
-    Node cur_node = nodes[i];
-    Service cur_service = services[i];
-    for (int k = 0; k < cur_service.before_count; k++) {
-      cur_node.before[k] =
-          get_service_index_by_name(cur_service.name, services);
-      Node *bind_node = get_node_by_name(cur_service.before[k], nodes);
-      bind_node->after[bind_node->after_count] = k;
-      bind_node->after_count++;
+    Node *cur_node = &nodes[i];
+    Service *cur_service = &services[i];
+    for (int k = 0; k < cur_service->before_count; k++) {
+      int idx = get_service_index_by_name(cur_service->before[k], services);
+      if (idx < 0)
+        continue;
+      cur_node->before[cur_node->before_count++] = idx;
+      Node *bind_node = &nodes[idx];
+      bind_node->after[bind_node->after_count++] = i;
     }
-    for (int k = 0; k < cur_service.after_count; k++) {
-      cur_node.after[k] = get_service_index_by_name(cur_service.name, services);
-      Node *bind_node = get_node_by_name(cur_service.after[k], nodes);
-      bind_node->before[bind_node->before_count] = k;
-      bind_node->before_count++;
+    for (int k = 0; k < cur_service->after_count; k++) {
+      int idx = get_service_index_by_name(cur_service->after[k], services);
+      if (idx < 0)
+        continue;
+      cur_node->after[cur_node->after_count++] = idx;
+      Node *bind_node = &nodes[idx];
+      bind_node->before[bind_node->before_count++] = i;
     }
   }
   return nodes;
 }
+
 int *topological_order(Service *services, int amount) {
   Node *nodes = nodeize(services, amount);
   int *order = malloc(sizeof(int) * amount);
+  int queue[256];
+  int qstart = 0;
+  int qend = 0;
   for (int i = 0; i < amount; i++) {
-    nodes[i].indegree = nodes[i].after_count;
-  }
-  int array_index = 0;
-  int i = 0;
-  while (1) {
+    nodes[i].indegree = nodes[i].before_count;
     if (nodes[i].indegree == 0) {
-      order[array_index] = i;
-      array_index++;
-      for (int k = 0; k < nodes[i].before_count; k++) {
-        nodes[i].indegree--;
+      queue[qend++] = i;
+    }
+  }
+  int index = 0;
+  while (qstart < qend) {
+    int cur = queue[qstart++];
+    order[index++] = cur;
+    for (int k = 0; k < nodes[cur].after_count; k++) {
+      int next = nodes[cur].after[k];
+      nodes[next].indegree--;
+      if (nodes[next].indegree == 0) {
+        queue[qend++] = next;
       }
     }
-    if (array_index==amount){
-      return order;
-    }
-    if (i >= amount) {
-      i = 0;
-    } else {
-      i++;
-    }
   }
+  if (index != amount) {
+    cprint("shi... dependecy cycle detected\n");
+  }
+  free(nodes);
+  return order;
 }
 Service parse_service(char *service_name) {
   Service service;
@@ -165,7 +183,7 @@ Service parse_service(char *service_name) {
           count++;
           cur_line++;
         }
-
+        service.functional[count][0] = '\0';
       } else {
         cur_line++;
       }
@@ -175,6 +193,7 @@ Service parse_service(char *service_name) {
   }
   return service;
 }
+
 void print_service(Service service) {
   cprint("name: ");
   cprint(service.name);
@@ -207,6 +226,7 @@ void print_service(Service service) {
 
   cprint("\n");
 }
+
 void execute_service(Service *service) {
   if (strcmp(service->type, "execute") == 0) {
     pid_t fork_pid;
@@ -257,6 +277,7 @@ void execute_service(Service *service) {
     }
   }
 }
+
 int main(int argc, char **argv) {
   cprint("initsys starting. getting services\n");
   Service *service_root;
@@ -275,9 +296,6 @@ int main(int argc, char **argv) {
     unsigned char type = entry->d_type;
     if (name[0] != '.') {
       if (type == DT_REG) {
-        cprint("service found: ");
-        cprint(name);
-        cprint("\n");
         service_root[amount] = parse_service(name);
         amount++;
         service_root = realloc(service_root, sizeof(Service) * (amount + 1));
@@ -288,8 +306,9 @@ int main(int argc, char **argv) {
       }
     }
   }
-  int *order=topological_order(service_root, amount);
-  for (int i=0; i<amount; i++) {
+  service_root[amount].name[0] = '\0';
+  int *order = topological_order(service_root, amount);
+  for (int i = 0; i < amount; i++) {
     execute_service(&service_root[order[i]]);
   }
   exit(EXIT_FAILURE);
