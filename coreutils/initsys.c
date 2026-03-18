@@ -75,17 +75,51 @@ Node *nodeize(Service *services, int amount) {
       int idx = get_service_index_by_name(cur_service->before[k], services);
       if (idx < 0)
         continue;
+      int already = 0;
+      for (int j = 0; j < cur_node->before_count; j++) {
+        if (cur_node->before[j] == idx) {
+          already = 1;
+          break;
+        }
+      }
+      if (already)
+        continue;
       cur_node->before[cur_node->before_count++] = idx;
       Node *bind_node = &nodes[idx];
-      bind_node->after[bind_node->after_count++] = i;
+      int already2 = 0;
+      for (int j = 0; j < bind_node->after_count; j++) {
+        if (bind_node->after[j] == i) {
+          already2 = 1;
+          break;
+        }
+      }
+      if (!already2)
+        bind_node->after[bind_node->after_count++] = i;
     }
     for (int k = 0; k < cur_service->after_count; k++) {
       int idx = get_service_index_by_name(cur_service->after[k], services);
       if (idx < 0)
         continue;
-      cur_node->after[cur_node->after_count++] = idx;
+      int already = 0;
+      for (int j = 0; j < cur_node->before_count; j++) {
+        if (cur_node->before[j] == idx) {
+          already = 1;
+          break;
+        }
+      }
+      if (already)
+        continue;
+      cur_node->before[cur_node->before_count++] = idx;
       Node *bind_node = &nodes[idx];
-      bind_node->before[bind_node->before_count++] = i;
+      int already2 = 0;
+      for (int j = 0; j < bind_node->after_count; j++) {
+        if (bind_node->after[j] == i) {
+          already2 = 1;
+          break;
+        }
+      }
+      if (!already2)
+        bind_node->after[bind_node->after_count++] = i;
     }
   }
   return nodes;
@@ -94,7 +128,7 @@ Node *nodeize(Service *services, int amount) {
 int *topological_order(Service *services, int amount) {
   Node *nodes = nodeize(services, amount);
   int *order = malloc(sizeof(int) * amount);
-  int queue[256];
+  int *queue = malloc(sizeof(int) * amount);
   int qstart = 0;
   int qend = 0;
   for (int i = 0; i < amount; i++) {
@@ -118,21 +152,26 @@ int *topological_order(Service *services, int amount) {
   if (index != amount) {
     cprint("shi... dependecy cycle detected\n");
   }
+  for (int i = 0; i < amount; i++)
+    free(nodes[i].name);
   free(nodes);
+  free(queue);
   return order;
 }
+
 Service parse_service(char *service_name) {
   Service service;
   memset(&service, 0, sizeof(Service));
   strncpy(service.name, service_name, 64);
   char *path = concat("/etc/initsys.d/", service_name);
   FILE *rc = fopen(path, "r");
+  free(path);
   if (rc == NULL) {
     cprint("Failed to open service file\n");
     return service;
   }
   char fline[1024];
-  char lines[1024][1024];
+  char (*lines)[1024] = malloc(1024 * 1024);
   int amm = 0;
   while (fgets(fline, sizeof(fline), rc) != NULL) {
     strncpy(lines[amm], fline, 1024);
@@ -191,6 +230,7 @@ Service parse_service(char *service_name) {
       cur_line++;
     }
   }
+  free(lines);
   return service;
 }
 
@@ -262,7 +302,9 @@ void execute_service(Service *service) {
       fork_pid = fork();
 
       if (fork_pid == 0) {
-        char *func = concat(concat("\"", service->functional[i]), "\"");
+        char *inner = concat("\"", service->functional[i]);
+        char *func = concat(inner, "\"");
+        free(inner);
         char *args[] = {"/bin/ball", "-c", func, NULL};
         execve("/bin/ball", args, environ);
         perror("execve failed");
@@ -311,5 +353,6 @@ int main(int argc, char **argv) {
   for (int i = 0; i < amount; i++) {
     execute_service(&service_root[order[i]]);
   }
-  exit(EXIT_FAILURE);
+  while (1)
+    wait(NULL);
 }
