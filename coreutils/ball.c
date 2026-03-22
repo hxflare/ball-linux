@@ -533,7 +533,7 @@ int main(int argc, char **argv) {
       for (int i = 2; i < argc; i++) {
         arg = concat(arg, argv[i]);
       }
-      char *command = malloc(sizeof(arg));
+      char *command = malloc(strlen(arg)+1);
       int quoted = 0;
       int c_index = 0;
       for (int i = 0; i < strlen(arg); i++) {

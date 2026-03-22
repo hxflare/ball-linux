@@ -6,7 +6,7 @@
 int main(int argc, char **argv) {
     char *dpath =argv[1];
     if (dpath[0]=='/'){
-        char *path=malloc(strlen(path)+3);
+        char *path=malloc(strlen(dpath)+3);
         snprintf(path, strlen(path)+3, "./%s", dpath);
     }else {
         char *path=dpath;

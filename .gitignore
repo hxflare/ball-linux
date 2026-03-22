@@ -8,6 +8,7 @@ coreutils/clear
 coreutils/touch
 coreutils/initsys
 coreutils/echo
+coreutils/mkdir
 ball_old.c
 building/linux
 building/isoroot/initramfs/bin/
