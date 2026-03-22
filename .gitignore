@@ -9,7 +9,8 @@ coreutils/touch
 coreutils/initsys
 coreutils/echo
 coreutils/mount
-coreutils/m
+coreutils/mkdir
+coreutils/tee
 ball_old.c
 building/linux
 building/isoroot/initramfs/bin/
