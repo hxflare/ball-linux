@@ -12,6 +12,7 @@ coreutils/mount
 coreutils/mkdir
 coreutils/tee
 coreutils/pwd
+coreutils/rmW
 ball_old.c
 building/linux
 building/isoroot/initramfs/bin/
