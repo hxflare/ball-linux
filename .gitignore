@@ -13,6 +13,7 @@ coreutils/mkdir
 coreutils/tee
 coreutils/pwd
 coreutils/rm
+coreutils/mv
 coreutils/cp
 ball_old.c
 building/linux

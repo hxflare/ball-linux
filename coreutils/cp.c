@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
 
   char buf[4096];
   ssize_t n;
-  while ((n = read(src, buf, sizeof(buf))) > 0){
+  while ((n = read(src, buf, sizeof(buf))) > 0) {
     write(dst, buf, n);
   }
   close(src);

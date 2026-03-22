@@ -1,0 +1,23 @@
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include "../btools.h"
+int main(int argc, char **argv) {
+    if (argc < 3) {
+        return 1;
+    }
+    int src = open(argv[1], O_RDONLY);
+    if (src == -1) { write(2, "open failed\n", 13); return 1; }
+    struct stat st;
+    fstat(src, &st);
+    int dst = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, st.st_mode);
+    if (dst == -1) { write(2, "create failed\n", 15); close(src); return 1; }
+    char buf[4096];
+    ssize_t n;
+    while ((n = read(src, buf, sizeof(buf))) > 0)
+        cprint(buf);
+    close(src);
+    close(dst);
+    unlink(argv[1]);
+    return 0;
+}
