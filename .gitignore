@@ -11,6 +11,7 @@ coreutils/echo
 coreutils/mount
 coreutils/mkdir
 coreutils/tee
+coreutils/pwd
 ball_old.c
 building/linux
 building/isoroot/initramfs/bin/
